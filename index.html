@@ -115,7 +115,6 @@
   </div>
 
   <div class="viz">
-    <!-- Per‑platform annotation sidebars are drawn to the right of each row -->
     <svg id="chart" viewBox="0 0 1900 1400" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
   </div>
 </div>
@@ -124,20 +123,20 @@
 
 <script>
 (() => {
-  // ---------- Layout ----------
-  const SIDE_W = 300;          // width of the per‑row sidebar column
-  const GAP_W  = 80;           // gap between plot and each row’s sidebar
+  // ------- Layout -------
+  const SIDE_W = 320;          // row-local sidebar width
+  const GAP_W  = 100;          // gap between plot and sidebar (more space)
   const PLOT_W = 1400;         // plot width
   const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
   const H0 = 1400;
   const M={t:170,r:28,b:90,l:120};
   const rowH = 160, rowGap = 120;
 
-  // ---------- Data source ----------
+  // ------- Data source -------
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
   const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
 
-  // ---------- Columns ----------
+  // ------- Columns -------
   const COLS = {
     date:['Date'],
     anno_en:['Annotation','Annotations','Annotations (English)'],
@@ -155,7 +154,7 @@
     story:['Story']
   };
 
-  // ---------- Colors / Stories ----------
+  // ------- Colors / stories -------
   const STATUS_COLORS = new Map([
     ['Removed by the user',    '#C96918'],
     ['Removed by platform',    '#E1524A'],
@@ -180,10 +179,10 @@
   ]);
   const militarySubthemes = new Set(['Military support','Military barracks']);
 
-  // ---------- SVG ----------
+  // ------- SVG -------
   const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${H0}`);
   const defs = $svg.append('defs');
-  defs.append('marker')            // arrowhead for connectors
+  defs.append('marker') // arrowhead
     .attr('id','arrow').attr('viewBox','0 0 10 10')
     .attr('refX',10).attr('refY',5).attr('markerWidth',7).attr('markerHeight',7).attr('orient','auto')
     .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#6fa7ff');
@@ -192,14 +191,14 @@
   const gPlot = gRoot.append('g');
   const gAxisTop = gPlot.append('g').attr('class','axis');
   const gRows = gPlot.append('g');
-  const gLines = gRoot.append('g');   // connector lines under boxes
-  const gSideRoot = gRoot.append('g'); // per‑row sidebars
+  const gLines = gRoot.append('g').lower();   // connectors under sidebars
+  const gSideRoot = gRoot.append('g');        // row-local sidebars above connectors
 
   const innerW = PLOT_W;
   let innerH = 1000;
   const tooltip = document.getElementById('tooltip');
 
-  // ---------- State ----------
+  // ------- State -------
   const S={
     raw:[], data:[], platforms:[], themes:new Set(), subthemes:new Set(), statuses:new Set(),
     activeStory:'All',
@@ -207,14 +206,14 @@
     search:'', annoLang:'en', postLang:'en', from:null, to:null
   };
 
-  // ---------- Controls ----------
+  // ------- Controls -------
   document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
   let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter();},160)});
 
-  // ---------- Helpers ----------
+  // ------- Utils -------
   const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
   function col(r,keys){for(const k of keys){if(r[k]!=null&&String(r[k]).trim()!=='')return String(r[k]).trim();}return'';}
@@ -222,7 +221,7 @@
   function parseDate(s){if(!s)return null;let d=new Date(s);if(!isNaN(+d))return d;const fmts=['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M','%d/%m/%Y'];for(const f of fmts){const p=d3.timeParse(f);d=p(s);if(d)return d;}return null;}
   function statusColor(st){ if (!st) return '#9aa8bb'; if (STATUS_COLORS.has(st)) return STATUS_COLORS.get(st); return '#9aa8bb'; }
 
-  // ---------- Load CSV ----------
+  // ------- Load CSV -------
   fetch(CSV_URL,{cache:"no-store"}).then(r=>r.text()).then(text=>{
     const header=(text.split(/\r?\n/)[0]||""); const delim=header.includes(";")?";":",";
     const rows=d3.dsvFormat(delim).parse(text); ingest(rows);
@@ -271,7 +270,6 @@
     S.subthemes=new Set(clean.map(d=>d.subtheme).filter(Boolean));
     S.statuses=new Set(clean.map(d=>d.summarised_status).filter(Boolean));
 
-    // dates
     const min=d3.min(clean,d=>d.date), max=d3.max(clean,d=>d.date);
     const iso=d=>d.toISOString().slice(0,10);
     document.getElementById('from-date').value=iso(min);
@@ -282,7 +280,7 @@
     rebuild();
   }
 
-  // ---------- Build ----------
+  // ------- Build -------
   let xScale, rByPlat, posByUid=new Map();
 
   function rebuild(){
@@ -315,7 +313,9 @@
 
     posByUid.clear();
 
-    // draw dots per row
+    // Run a simulation PER ROW and wait for all to finish before drawing connectors
+    let pending = 0;
+
     rowAll.each(function(plat,iRow){
       const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
       const nodes=S.data.filter(d=>d.platform===plat).map(d=>({
@@ -323,6 +323,7 @@
         r:rByPlat.get(plat)?.(Math.max(1,d.engagement))||4,
         x:xScale(d.date), y:0
       }));
+
       const sel=d3.select(this).selectAll('g.dot').data(nodes,d=>d.uid);
       const gDot=sel.join(enter=>{
         const g=enter.append('g').attr('class','dot').attr('tabindex',0)
@@ -337,7 +338,7 @@
         return g;
       });
 
-      d3.forceSimulation(nodes)
+      const sim = d3.forceSimulation(nodes)
         .force('x',d3.forceX(d=>xScale(d.date)).strength(0.8))
         .force('y',d3.forceY(0).strength(0.14))
         .force('collide',d3.forceCollide(d=>d.r+4))
@@ -345,7 +346,6 @@
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
           gDot.each(d=>posByUid.set(d.uid,{x:d.x, y:rowBaseY + d.y, rowY:rowBaseY}));
-
           gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>themeColor(d.theme));
           const needsOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
           gDot.select('circle.ring-sep').attr('r',d=>d.r+1.3).attr('opacity',d=>needsOutline(d)?1:0);
@@ -354,17 +354,19 @@
             .attr('stroke',d=>isGETTR(d)?'transparent':statusColor(d.summarised_status))
             .attr('opacity',d=>needsOutline(d)?1:0);
         });
+
+      pending++;
+      sim.on('end',()=>{ if(--pending===0) rebuildSidebars(); });
     });
 
     buildLegends();
     buildSubthemeLegend();
     buildSizeChips();
     applyStoryHighlight();
-    rebuildSidebars();
     filter();
   }
 
-  // ---------- Legends ----------
+  // ------- Legends -------
   function buildLegends(){
     const themes=[...S.themes].sort();
     d3.select('#legend-themes').selectAll('.legend-item').data(themes,d=>d).join(enter=>{
@@ -376,11 +378,11 @@
     const sts=[...S.statuses].sort();
     d3.select('#legend-status').selectAll('.legend-item').data(sts,d=>d).join(enter=>{
       const div=enter.append('div').attr('class','legend-item');
-      const col=d=>statusColor(d);
-      div.html(d=>{
-        const c=col(d); const style=c==='transparent'?'border:2px dashed #567; opacity:.6':`border:2px solid ${c}`;
+      const cHTML = d=>{
+        const c=statusColor(d); const style=c==='transparent'?'border:2px dashed #567; opacity:.6':`border:2px solid ${c}`;
         return `<span class="stroke" style="${style}"></span> <span>${esc(d||'—')}</span>`;
-      });
+      };
+      div.html(cHTML);
       div.on('click',(e,d)=>{ if(S.statusFilter.has(d)) S.statusFilter.delete(d); else S.statusFilter.add(d); updateLegendStates(); filter(); });
     });
 
@@ -417,7 +419,7 @@
     });
   }
 
-  // ---------- Stories ----------
+  // ------- Stories -------
   function buildStoriesLegend(){
     const el=d3.select('#legend-stories'); el.selectAll('*').remove();
     const stories=['All', STORY_PLANNING, STORY_MILITARY];
@@ -453,7 +455,7 @@
     });
   }
 
-  // ---------- Sidebar per row ----------
+  // ------- Row‑local sidebars with lane packing -------
   function wrapSvgText(textSel, width, lineHeight=14, maxLines=7) {
     textSel.each(function() {
       const text = d3.select(this);
@@ -482,9 +484,11 @@
   function rebuildSidebars(){
     gLines.selectAll('*').remove();
     gSideRoot.selectAll('*').remove();
-    if (S.activeStory==='All') return; // only show when a Story is selected
+    if (S.activeStory==='All') return; // show only when a Story is selected
 
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
+
+    // per-platform grouping
     const perRow = new Map(S.platforms.map(p=>[p,[]]));
     S.data.forEach(d=>{
       const txt=(textFor(d)||'').trim();
@@ -493,6 +497,7 @@
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
       perRow.get(d.platform)?.push(d);
     });
+
     const fmtDate=d3.timeFormat('%b %d');
 
     S.platforms.forEach((plat,iRow)=>{
@@ -500,55 +505,66 @@
       if(!items.length) return;
 
       const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
-      const xLeft = innerW + GAP_W;  // start of this row’s sidebar column
-      const yTop  = rowBaseY - rowH/2; // column aligned to row
+      const xLeft = innerW + GAP_W;
+      const yTop  = rowBaseY - rowH/2;
       const gCol = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-
-      // column title once per row
       gCol.append('text').attr('x',0).attr('y',-10).attr('fill','#9fb3c8').attr('font-size',11).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      const BOX_W = SIDE_W;
-      const V_PAD = 8;
-      const rowGapBox = 8;
-      let yCursor = 0;
-
-      items.forEach(d=>{
+      // First measure each box height by rendering off-screen (opacity 0), then pack into lanes
+      const BOX_PADV=8, LINE_H=14, GAP=8, MAX_LINES=7;
+      const temp = gCol.append('g').attr('opacity',0).attr('transform','translate(-9999,-9999)');
+      let measures = items.map(d=>{
         const full = `${fmtDate(d.date)} — ${(textFor(d)||'').trim()}`;
-
-        const g = gCol.append('g').attr('transform',`translate(0,${yCursor})`);
-        const t = g.append('text').attr('x',8).attr('y',V_PAD-4).attr('fill','#e6eef7').attr('font-size',12);
+        const t = temp.append('text').attr('x',8).attr('y',BOX_PADV-4).attr('font-size',12);
         t.text(full);
-        wrapSvgText(t, BOX_W, 14, 7);
-
+        wrapSvgText(t, SIDE_W, LINE_H, MAX_LINES);
         const lines = t.selectAll('tspan').nodes().length || 1;
-        const textH = lines * 14;
-        const boxH = textH + V_PAD*2;
+        const h = lines*LINE_H + BOX_PADV*2;
+        t.remove();
+        return {d, h};
+      });
+      temp.remove();
 
+      // lanes: choose 1–4 so total height fits rowH
+      const totalH = measures.reduce((s,m)=>s+m.h,0) + GAP*(measures.length-1);
+      const lanes = Math.min(4, Math.max(1, Math.ceil(totalH / (rowH-20))));
+      const laneW = Math.floor(SIDE_W / lanes) - (lanes>1?6:0);
+
+      // init lane cursors
+      const laneY = Array(lanes).fill(0);
+      const laneX = (i)=> i*(laneW+6);
+
+      // place boxes greedily in the lane with smallest current height
+      measures.forEach(m=>{
+        let k = 0; let best = laneY[0];
+        for(let i=1;i<lanes;i++){ if(laneY[i] < best){ best=laneY[i]; k=i; } }
+        const full = `${fmtDate(m.d.date)} — ${(textFor(m.d)||'').trim()}`;
+        const g = gCol.append('g').attr('transform',`translate(${laneX(k)},${laneY[k]})`);
         g.insert('rect','text')
-          .attr('width',BOX_W).attr('height',boxH)
+          .attr('width',laneW).attr('height',m.h)
           .attr('rx',8).attr('ry',8)
           .attr('fill','#0b1220').attr('stroke','#6fa7ff').attr('stroke-width',1.2);
+        const t = g.append('text').attr('x',8).attr('y',BOX_PADV-4).attr('fill','#e6eef7').attr('font-size',12);
+        t.text(full); wrapSvgText(t, laneW, LINE_H, MAX_LINES); t.attr('y',0);
 
-        t.attr('y',0);
-
-        // connector
-        const pos = posByUid.get(d.uid);
+        // connector curve with arrowhead
+        const pos = posByUid.get(m.d.uid);
         if(pos){
           const x1 = pos.x, y1 = pos.y;
-          const x2 = innerW + GAP_W - 10;     // end in the gap just before box
-          const y2 = yTop + yCursor + boxH/2; // middle of this box
+          const x2 = innerW + GAP_W - 10;                  // end just left of this row's column
+          const y2 = yTop + laneY[k] + (m.h/2);            // mid of the box
           gLines.append('path')
             .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-            .attr('stroke','#6fa7ff').attr('fill','none').attr('opacity',0.95)
+            .attr('stroke','#6fa7ff').attr('stroke-width',1.6).attr('fill','none')
             .attr('marker-end','url(#arrow)');
         }
 
-        yCursor += boxH + rowGapBox;
+        laneY[k] += m.h + GAP;
       });
     });
   }
 
-  // ---------- Filter / Range ----------
+  // ------- Filter / Range -------
   function filter(){
     const q=S.search; const hasTheme=S.themeFilter.size>0; const hasStatus=S.statusFilter.size>0; const hasSub=S.subthemeFilter.size>0;
     gRows.selectAll('g.dot').classed('hidden', d=>{
@@ -571,7 +587,7 @@
     rebuild();
   }
 
-  // ---------- Tooltip / Open ----------
+  // ------- Tooltip / Open -------
   const fmt=d3.format(',');
   function showTooltip(evt,d){
     const el=tooltip; el.classList.remove('hidden');
@@ -589,7 +605,7 @@
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
-  // Open Annex EXACTLY as given; fallback to URL
+  // open Annex EXACTLY as provided; fallback to URL
   function openDetails(d){
     const best = (d.annex && d.annex.trim()) ? d.annex.trim() : (d.link && d.link.trim()) ? d.link.trim() : null;
     if(!best){
@@ -599,7 +615,7 @@
     window.open(best,'_blank','noopener');
   }
 
-  // ---------- Export ----------
+  // ------- Export -------
   async function exportPNG(){
     const svg=document.getElementById('chart'); const data=new XMLSerializer().serializeToString(svg); const blob=new Blob([data],{type:'image/svg+xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const img=new Image();
     const vb=svg.viewBox.baseVal; const scale=2; const canvas=document.createElement('canvas'); canvas.width=vb.width*scale; canvas.height=vb.height*scale; const ctx=canvas.getContext('2d');
