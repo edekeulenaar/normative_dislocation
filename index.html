@@ -13,7 +13,7 @@
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
   a{color:var(--accent)}
-  .wrap{max-width:1600px;margin:24px auto 90px;padding:0 16px}
+  .wrap{max-width:1680px;margin:24px auto 90px;padding:0 16px}
   header h1{margin:.2rem 0 .1rem;font-size:24px}
   header p{margin:0 0 8px;color:var(--muted)}
 
@@ -29,7 +29,6 @@
   .track{stroke:#1a2433;stroke-width:1}
   .platform-label{fill:#9fb3c8;font-size:13px}
 
-  /* TOP LEGENDS */
   .legend-top{display:block; margin-top:12px}
   .legend-top .section{border:1px solid var(--stroke);border-radius:12px;padding:12px 12px 14px;background:#0e1520;margin-bottom:12px}
   .legend-top h3{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:700}
@@ -41,7 +40,6 @@
   .legend-item.dim{opacity:.35}
   .explain{margin:.2rem 0 .8rem;color:#9fb3c8;font-size:12px}
 
-  /* Compact per‑platform size chips */
   .size-chips{display:flex;flex-wrap:wrap;gap:10px 16px}
   .chip{display:inline-flex;align-items:center;gap:8px;padding:4px 8px;border:1px solid var(--stroke);border-radius:999px;background:#0e1520;color:#9fb3c8;font-size:12px;white-space:nowrap}
   .chip svg{width:40px;height:14px}
@@ -85,9 +83,8 @@
     <button id="btn-export">Export PNG</button>
   </div>
 
-  <!-- TOP KEYS -->
   <div class="legend-top">
-    <div class="section section-explain">
+    <div class="section">
       <h3>What you are seeing</h3>
       <p class="explain">
         Dots are posts. <b>Dot size</b>: Overall engagement (normalised per platform).
@@ -96,30 +93,30 @@
       <div id="size-chips" class="size-chips"></div>
     </div>
 
-    <div class="section section-stories">
+    <div class="section">
       <h3>Stories</h3>
       <div id="legend-stories" class="legend-row"></div>
     </div>
 
-    <div class="section section-themes">
+    <div class="section">
       <h3>Themes (click to filter)</h3>
       <div id="legend-themes" class="legend-row"></div>
     </div>
 
-    <div class="section section-subthemes">
+    <div class="section">
       <h3>Sub‑themes (click to filter)</h3>
       <div id="legend-subthemes" class="legend-row"></div>
     </div>
 
-    <div class="section section-status">
+    <div class="section">
       <h3>Status (click to filter)</h3>
       <div id="legend-status" class="legend-row"></div>
     </div>
   </div>
 
   <div class="viz">
-    <!-- Plot at left + annotation sidebar at right (inside same SVG) -->
-    <svg id="chart" viewBox="0 0 1820 1200" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
+    <!-- Plot at left + bigger gap + annotation sidebar at right -->
+    <svg id="chart" viewBox="0 0 1900 1200" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
   </div>
 </div>
 
@@ -127,20 +124,20 @@
 
 <script>
 (() => {
-  // ------------ Layout ------------
-  const SIDE_W = 360;          // sidebar width for callouts
-  const PLOT_W = 1400;         // plot width (wide so dots don’t get clipped)
-  const W = 120 + PLOT_W + 24 + SIDE_W + 28; // margins + plot + gap + sidebar
+  // ---------- Layout ----------
+  const SIDE_W = 380;          // sidebar width
+  const GAP_W  = 100;          // **bigger gap** between plot and sidebar
+  const PLOT_W = 1400;         // plot width
+  const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
   const H0 = 1200;
+  const M={t:170,r:28,b:90,l:120};
+  const rowH = 160, rowGap = 120;
 
-  const M={t:170,r:28,b:90,l:120};           // extra top for top axis
-  const rowH = 160, rowGap = 120;            // wide spacing; strong collision
-
-  // ------------ CSV URL ------------
+  // ---------- Data source ----------
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
   const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
 
-  // ------------ Columns (incl. Story) ------------
+  // ---------- Columns ----------
   const COLS = {
     date:['Date'],
     anno_en:['Annotation','Annotations','Annotations (English)'],
@@ -158,7 +155,7 @@
     story:['Story']
   };
 
-  // ------------ Palettes / stories ------------
+  // ---------- Colors / Stories ----------
   const STATUS_COLORS = new Map([
     ['Removed by the user',    '#C96918'],
     ['Removed by platform',    '#E1524A'],
@@ -172,7 +169,6 @@
   const themeColor = d3.scaleOrdinal(
     d3.schemeTableau10.concat(['#e07a5f','#3d405b','#81b29a','#f2cc8f','#f4a261','#2a9d8f','#e76f51','#a7c957','#bc6c25','#6d597a'])
   );
-
   const STORY_PLANNING = 'Planning the riots';
   const STORY_MILITARY = 'Military involvement';
   const planningThemes = new Set([
@@ -184,50 +180,49 @@
   ]);
   const militarySubthemes = new Set(['Military support','Military barracks']);
 
-  // ------------ SVG scaffolding ------------
+  // ---------- SVG ----------
   const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${H0}`);
-  const defs = $svg.append('defs');        // arrowhead for connectors
-  defs.append('marker')
-    .attr('id','arrow').attr('viewBox','0 0 10 10')
+  const defs = $svg.append('defs');
+  // Arrowhead for connectors
+  defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
     .attr('refX',10).attr('refY',5).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
     .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#6fa7ff');
 
   const gRoot = $svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
-  const gPlot = gRoot.append('g');                           // main plot
-  const gAxisTop = gPlot.append('g').attr('class','axis');   // top time axis
-  const gRows = gPlot.append('g');                           // rows/dots
-  const gSidebar = gRoot.append('g');                        // right sidebar
+  const gPlot = gRoot.append('g');
+  const gAxisTop = gPlot.append('g').attr('class','axis');
+  const gRows = gPlot.append('g');
+  const gLines = gRoot.append('g').attr('class','sidebar-lines'); // behind boxes
+  const gSidebar = gRoot.append('g'); // boxes drawn above lines
 
   const innerW = PLOT_W;
   let innerH = 1000;
-
   const tooltip = document.getElementById('tooltip');
 
-  // ------------ State ------------
+  // ---------- State ----------
   const S={
     raw:[], data:[], platforms:[], themes:new Set(), subthemes:new Set(), statuses:new Set(),
-    stories:new Set([STORY_PLANNING, STORY_MILITARY]),
     activeStory:'All',
     themeFilter:new Set(), subthemeFilter:new Set(), statusFilter:new Set(),
     search:'', annoLang:'en', postLang:'en', from:null, to:null
   };
 
-  // ------------ Controls ------------
+  // ---------- Controls ----------
   document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebar();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
   let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter();},160)});
 
-  // ------------ Utils ------------
+  // ---------- Helpers ----------
+  const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
   function col(r,keys){for(const k of keys){if(r[k]!=null&&String(r[k]).trim()!=='')return String(r[k]).trim();}return'';}
   function num(r,keys){const v=col(r,keys);if(v==='')return NaN;const nv=+String(v).replace(/\u00A0/g,' ').replace(/[^\d.\-]/g,'');return isFinite(nv)?nv:NaN;}
   function parseDate(s){if(!s)return null;let d=new Date(s);if(!isNaN(+d))return d;const fmts=['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M','%d/%m/%Y'];for(const f of fmts){const p=d3.timeParse(f);d=p(s);if(d)return d;}return null;}
   function statusColor(st){ if (!st) return '#9aa8bb'; if (STATUS_COLORS.has(st)) return STATUS_COLORS.get(st); return '#9aa8bb'; }
-  const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
-  const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-  // ------------ Load CSV ------------
+  // ---------- Load CSV ----------
   fetch(CSV_URL,{cache:"no-store"}).then(r=>r.text()).then(text=>{
     const header=(text.split(/\r?\n/)[0]||""); const delim=header.includes(";")?";":",";
     const rows=d3.dsvFormat(delim).parse(text); ingest(rows);
@@ -242,8 +237,10 @@
   function ingest(rows){
     const clean=rows.map((r,i)=>{
       const date=parseDate(col(r,COLS.date)); if(!date) return null;
-      const stRaw=(col(r,COLS.story)||'').trim();
-      const story = stRaw==='Story 1' ? STORY_PLANNING : stRaw==='Story 2' ? STORY_MILITARY : stRaw;
+      const storyRaw=(col(r,COLS.story)||'').trim();
+      const story = storyRaw==='Story 1' ? 'Planning the riots'
+                   : storyRaw==='Story 2' ? 'Military involvement'
+                   : storyRaw;
       return {
         uid:i,
         date,
@@ -258,14 +255,14 @@
         story,
         detailed_status:col(r,COLS.detailed_status),
         summarised_status:col(r,COLS.summarised_status)||'Unknown',
-        annex:col(r,COLS.annex),
+        annex:col(r,COLS.annex),         // will be used EXACT as provided
         link:col(r,COLS.link)
       };
     }).filter(Boolean);
 
     S.raw=clean;
 
-    // Custom platform order
+    // Ordered platforms
     const desired=['Telegram','GETTR','Twitter','YouTube','Facebook','Instagram'];
     const present=Array.from(new Set(clean.map(d=>d.platform)));
     S.platforms = desired.filter(p=>present.includes(p)).concat(present.filter(p=>!desired.includes(p)));
@@ -273,9 +270,8 @@
     S.themes=new Set(clean.map(d=>d.theme).filter(Boolean));
     S.subthemes=new Set(clean.map(d=>d.subtheme).filter(Boolean));
     S.statuses=new Set(clean.map(d=>d.summarised_status).filter(Boolean));
-    S.stories=new Set([STORY_PLANNING,STORY_MILITARY].filter(s=>clean.some(d=>d.story===s)));
 
-    // date inputs
+    // dates
     const min=d3.min(clean,d=>d.date), max=d3.max(clean,d=>d.date);
     const iso=d=>d.toISOString().slice(0,10);
     document.getElementById('from-date').value=iso(min);
@@ -286,33 +282,29 @@
     rebuild();
   }
 
-  // ------------ Rebuild plot ------------
+  // ---------- Build ----------
   let xScale, rByPlat, posByUid=new Map();
 
   function rebuild(){
-    // by range
     S.data=S.raw.filter(d=>(!S.from||d.date>=S.from)&&(!S.to||d.date<=S.to));
 
     const tMin=d3.min(S.data,d=>d.date), tMax=d3.max(S.data,d=>d.date);
     innerH=S.platforms.length*(rowH+rowGap);
-    d3.select('#chart').attr('viewBox',`0 0 ${M.l+innerW+24+SIDE_W+M.r} ${M.t+innerH+M.b}`);
+    d3.select('#chart').attr('viewBox',`0 0 ${M.l+innerW+GAP_W+SIDE_W+M.r} ${M.t+innerH+M.b}`);
 
     xScale=d3.scaleTime().domain([tMin,tMax]).range([0,innerW]);
 
-    // per-platform radii (GETTR smaller)
     const byPlat=d3.rollup(S.data,v=>d3.max(v,d=>d.engagement)||1,d=>d.platform);
     rByPlat=new Map([...byPlat.entries()].map(([p,mx])=>{
       const lohi=(p.toLowerCase()==='gettr')?[1.2,3.4]:[2,9];
       return [p,d3.scaleSqrt().domain([1,mx]).range(lohi)];
     }));
 
-    // Top axis (UPPERCASE)
     const fmtTop=d3.timeFormat('%b %d');
     gAxisTop.selectAll('*').remove();
     gAxisTop.attr('transform','translate(0,-40)')
       .call(d3.axisTop(xScale).ticks(12).tickFormat(d=>fmtTop(d).toUpperCase()));
 
-    // rows
     const rowSel=gRows.selectAll('g.row').data(S.platforms,d=>d);
     const rowEnter=rowSel.enter().append('g').attr('class','row');
     rowEnter.append('line').attr('class','track').attr('x1',0).attr('x2',innerW);
@@ -323,15 +315,14 @@
 
     posByUid.clear();
 
-    // dots per row
+    // draw dots per row
     rowAll.each(function(plat,iRow){
-      const rowBaseY = iRow*(rowH+rowGap)+rowH/2;  // absolute Y offset of this row
+      const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
       const nodes=S.data.filter(d=>d.platform===plat).map(d=>({
         ...d,
         r:rByPlat.get(plat)?.(Math.max(1,d.engagement))||4,
         x:xScale(d.date), y:0
       }));
-
       const sel=d3.select(this).selectAll('g.dot').data(nodes,d=>d.uid);
       const gDot=sel.join(enter=>{
         const g=enter.append('g').attr('class','dot').attr('tabindex',0)
@@ -349,13 +340,11 @@
       d3.forceSimulation(nodes)
         .force('x',d3.forceX(d=>xScale(d.date)).strength(0.8))
         .force('y',d3.forceY(0).strength(0.14))
-        .force('collide',d3.forceCollide(d=>d.r+4)) // no touching
+        .force('collide',d3.forceCollide(d=>d.r+4))
         .alpha(0.9).alphaDecay(0.02)
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
-          // record absolute position for connectors (x relative; y + rowBaseY)
           gDot.each(d=>posByUid.set(d.uid,{x:d.x, y:rowBaseY + d.y}));
-
           gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>themeColor(d.theme));
           const needsOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
           gDot.select('circle.ring-sep').attr('r',d=>d.r+1.3).attr('opacity',d=>needsOutline(d)?1:0);
@@ -374,7 +363,7 @@
     filter();
   }
 
-  // ------------ Legends ------------
+  // ---------- Legends ----------
   function buildLegends(){
     const themes=[...S.themes].sort();
     d3.select('#legend-themes').selectAll('.legend-item').data(themes,d=>d).join(enter=>{
@@ -409,8 +398,6 @@
     d3.select('#legend-status').selectAll('.legend-item').classed('dim', d=> S.statusFilter.size && !S.statusFilter.has(d));
     d3.select('#legend-subthemes').selectAll('.legend-item').classed('dim', d=> S.subthemeFilter.size && !S.subthemeFilter.has(d));
   }
-
-  // size chips (Platform — ○ ○ — min–max)
   function buildSizeChips(){
     const box=document.getElementById('size-chips'); box.innerHTML='';
     const fmt=d3.format(',');
@@ -429,10 +416,10 @@
     });
   }
 
-  // ------------ Stories ------------
+  // ---------- Stories ----------
   function buildStoriesLegend(){
     const el=d3.select('#legend-stories'); el.selectAll('*').remove();
-    const stories=['All', STORY_PLANNING, STORY_MILITARY];
+    const stories=['All', 'Planning the riots', 'Military involvement'];
     el.selectAll('.story-item').data(stories).join('div')
       .attr('class','story-item')
       .classed('active', d=>d===S.activeStory)
@@ -440,7 +427,7 @@
       .on('click',(e,d)=>{
         S.activeStory=d;
         d3.selectAll('.story-item').classed('active', x=>x===d);
-        if(d===STORY_PLANNING){
+        if(d==='Planning the riots'){
           const max=d3.max(S.raw,x=>x.date);
           const start=new Date('2022-12-15T00:00:00');
           S.from=start; S.to=max;
@@ -456,8 +443,8 @@
       });
   }
   function applyStoryHighlight(){
-    const isPlanning = S.activeStory===STORY_PLANNING;
-    const isMilitary = S.activeStory===STORY_MILITARY;
+    const isPlanning = S.activeStory==='Planning the riots';
+    const isMilitary = S.activeStory==='Military involvement';
     gRows.selectAll('g.dot').classed('dimStory', d=>{
       if(isPlanning)  return !planningThemes.has(d.theme);
       if(isMilitary)  return !militarySubthemes.has(d.subtheme);
@@ -465,8 +452,7 @@
     });
   }
 
-  // ------------ Sidebar (annotations) ------------
-  // helper: wrap <text> into tspans to fit width
+  // ---------- Sidebar / Annotations ----------
   function wrapSvgText(textSel, width, lineHeight=14, maxLines=7) {
     textSel.each(function() {
       const text = d3.select(this);
@@ -493,18 +479,19 @@
   }
 
   function rebuildSidebar(){
+    gLines.selectAll('*').remove();
     gSidebar.selectAll('*').remove();
-    gRoot.selectAll('.sidebar-lines').remove();
-    const gLines = gRoot.append('g').attr('class','sidebar-lines');
+
+    // Only show annotations when a Story is selected
+    if (S.activeStory==='All') return;
 
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
-
     let items = S.data.filter(d => (textFor(d)||'').trim().length>0);
-    if (S.activeStory===STORY_PLANNING) items = items.filter(d=>d.story===STORY_PLANNING);
-    if (S.activeStory===STORY_MILITARY) items = items.filter(d=>d.story===STORY_MILITARY);
+    if (S.activeStory==='Planning the riots') items = items.filter(d=>d.story==='Planning the riots');
+    if (S.activeStory==='Military involvement') items = items.filter(d=>d.story==='Military involvement');
     items.sort((a,b)=>a.date-b.date);
 
-    const xLeft = innerW + 24;
+    const xLeft = innerW + GAP_W;  // **bigger gap**
     const yTop  = -40;
     gSidebar.attr('transform',`translate(${xLeft},${yTop})`);
 
@@ -512,18 +499,15 @@
       .attr('x',0).attr('y',-12).attr('fill','#9fb3c8').attr('font-size',12)
       .text('CONTEXT (chronological)');
 
-    const BOX_W = SIDE_W - 40;
+    const BOX_W = SIDE_W - 20;
     const V_PAD = 8;
     const rowGap = 10;
     const fmtDate=d3.timeFormat('%b %d');
-
     let currentY = 0;
 
     items.forEach((d) => {
       const full = `${fmtDate(d.date)} — ${(textFor(d)||'').trim()}`;
-
       const g = gSidebar.append('g').attr('class','item').attr('transform',`translate(0,${currentY})`);
-
       const t = g.append('text').attr('x',8).attr('y',V_PAD-4).attr('fill','#e6eef7').attr('font-size',12);
       t.text(full);
       wrapSvgText(t, BOX_W, 14, 7);
@@ -537,16 +521,17 @@
         .attr('rx',8).attr('ry',8)
         .attr('fill','#0b1220').attr('stroke','#6fa7ff').attr('stroke-width',1.2);
 
-      t.attr('y',0); // first tspan handles dy
+      t.attr('y',0);
 
+      // connector with arrow
       const pos = posByUid.get(d.uid);
       if (pos) {
         const x1 = pos.x, y1 = pos.y;
-        const x2 = innerW + 14;
+        const x2 = innerW + GAP_W - 12;          // into the gap, aiming at box center
         const y2 = yTop + currentY + boxH/2;
         gLines.append('path')
           .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-          .attr('stroke','#6fa7ff').attr('fill','none').attr('opacity',0.85)
+          .attr('stroke','#6fa7ff').attr('fill','none').attr('opacity',0.9)
           .attr('marker-end','url(#arrow)');
       }
 
@@ -554,7 +539,7 @@
     });
   }
 
-  // ------------ Filtering ------------
+  // ---------- Filter / Range ----------
   function filter(){
     const q=S.search; const hasTheme=S.themeFilter.size>0; const hasStatus=S.statusFilter.size>0; const hasSub=S.subthemeFilter.size>0;
     gRows.selectAll('g.dot').classed('hidden', d=>{
@@ -577,7 +562,7 @@
     rebuild();
   }
 
-  // ------------ Tooltip / open ------------
+  // ---------- Tooltip / Open ----------
   const fmt=d3.format(',');
   function showTooltip(evt,d){
     const el=tooltip; el.classList.remove('hidden');
@@ -595,19 +580,17 @@
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
+  // IMPORTANT: open Annex EXACTLY as provided; fallback to URL; no transforms
   function openDetails(d){
-    const best = d.annex || d.link;
+    const best = (d.annex && d.annex.trim()) ? d.annex.trim() : (d.link && d.link.trim()) ? d.link.trim() : null;
     if(!best){
       window.open('https://drive.google.com/drive/folders/1KIBwCiGmlPwVcIKGcZVMGfqLcKB-qKQM?usp=drive_link','_blank','noopener');
       return;
     }
-    const yt=toYouTube(best); const drv=toDrive(best);
-    if(yt) window.open(yt,'_blank','noopener'); else if(drv) window.open(drv,'_blank','noopener'); else window.open(best,'_blank','noopener');
+    window.open(best,'_blank','noopener');
   }
-  function toYouTube(u){ try{ const url=new URL(u); if(url.hostname.includes('youtube.com')){const id=url.searchParams.get('v'); if(id) return `https://www.youtube.com/embed/${id}`;} if(url.hostname==='youtu.be'){const id=url.pathname.slice(1); if(id) return `https://www.youtube.com/embed/${id}`;} }catch{} return null; }
-  function toDrive(u){ try{ const url=new URL(u); if(url.hostname.includes('drive.google.com')){ const m=url.pathname.match(/\/file\/d\/([\w-]+)/); if(m) return `https://drive.google.com/file/d/${m[1]}/preview`; return u; } }catch{} return null; }
 
-  // ------------ Export ------------
+  // ---------- Export ----------
   async function exportPNG(){
     const svg=document.getElementById('chart'); const data=new XMLSerializer().serializeToString(svg); const blob=new Blob([data],{type:'image/svg+xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const img=new Image();
     const vb=svg.viewBox.baseVal; const scale=2; const canvas=document.createElement('canvas'); canvas.width=vb.width*scale; canvas.height=vb.height*scale; const ctx=canvas.getContext('2d');
