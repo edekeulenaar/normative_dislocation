@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>BR Jan 8 — All Platforms • Remote CSV interactive beeswarms</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0b0f14; --panel:#0f1622; --stroke:#213248; --fg:#e6eef7; --muted:#9fb3c8; --accent:#7cc4ff;}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  a{color:var(--accent)}
+  .wrap{max-width:1240px;margin:24px auto 90px;padding:0 16px}
+  header h1{margin:.2rem 0 .1rem;font-size:24px}
+  header p{margin:0 0 8px;color:var(--muted)}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:10px}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;background:#0e1520;color:var(--fg);font-size:13px}
+  select{border-radius:10px;border:1px solid var(--stroke);background:#0e1520;color:var(--fg);padding:8px 10px;font-weight:600}
+  button{border-radius:10px;border:1px solid var(--stroke);background:#0e1520;color:var(--fg);padding:8px 10px;font-weight:600}
+  .viz{margin-top:12px;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px}
+  svg{width:100%;height:auto;display:block}
+  .axis text{fill:var(--muted);font-size:12px}
+  .axis path,.axis line{stroke:#33465e}
+  .track{stroke:#1a2433;stroke-width:1}
+  .platform-label{fill:#9fb3c8;font-size:13px}
+  .legend{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}
+  .legend h3{font-size:13px;margin:0;color:var(--muted);font-weight:700}
+  .legend .section{border:1px solid var(--stroke);border-radius:12px;padding:10px;background:#0e1520}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg);cursor:pointer}
+  .legend-item .swatch{width:14px;height:14px;border-radius:50%;border:1.5px solid #fff3}
+  .legend-item .stroke{border-radius:3px;height:10px;width:22px;background:transparent}
+  .legend-item.dim{opacity:.35}
+  .size-legend svg{width:100%;height:72px;display:block}
+  .tool{position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.35;max-width:420px;box-shadow:0 10px 30px #0006}
+  .tool h4{margin:0 0 6px;font-size:13px;color:var(--accent)}
+  .tool p{margin:0 0 6px;white-space:pre-wrap}
+  .tool .meta{color:var(--muted);font-size:12px}
+  .anno-line{stroke:#6fa7ff;stroke-dasharray:4 3;opacity:.75}
+  .anno-badge{fill:#07121f;stroke:#6fa7ff;stroke-width:1}
+  .anno-text{fill:var(--fg);font-size:12px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Top posts leading up to Jan 8, 2023 — all platforms</h1>
+    <p>Each dot is a post. <b>Dot area ∝ Overall engagement</b> (per‑platform normalization). <b>Fill = Theme</b>; <b>outer ring = Summarised status</b>. Vertical dashed lines are annotations.</p>
+  </header>
+
+  <div class="controls">
+    <label class="pill">Annotation language
+      <select id="anno-lang">
+        <option value="en" selected>English</option>
+        <option value="pt">Português</option>
+      </select>
+    </label>
+    <label class="pill">Post language
+      <select id="post-lang">
+        <option value="pt">Português</option>
+        <option value="en" selected>English</option>
+      </select>
+    </label>
+    <input id="search" placeholder="Search (post / theme / status / link)" style="flex:1;background:#0e1520;color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:8px 10px"/>
+    <button id="btn-export">Export PNG</button>
+  </div>
+
+  <div class="viz">
+    <svg id="chart" viewBox="0 0 1180 1020" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
+  </div>
+
+  <div class="legend" id="legend">
+    <div class="section">
+      <h3>What you’re seeing</h3>
+      <p style="margin:.4rem 0 0;color:#9fb3c8;font-size:12px">Dots are posts. Dot area is proportional to the post’s <b>Overall engagement</b> (shares, views, etc., aggregated per platform). Fill encodes <b>Theme</b>; the outer ring encodes <b>Summarised status</b>.</p>
+      <div class="size-legend" id="size-legend"></div>
+    </div>
+    <div class="section" id="legend-themes"><h3>Themes (click to filter)</h3></div>
+    <div class="section" id="legend-status"><h3>Status (click to filter)</h3></div>
+  </div>
+</div>
+
+<div id="tooltip" class="tool hidden"></div>
+
+<script>
+(() => {
+  // Your CSV (GitHub RAW). You can override at runtime with ?csv=...
+  const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
+  const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
+
+  // Column map (matches your headers, with a few tolerant aliases)
+  const COLS = {
+    date:['Date'],
+    anno_en:['Annotation','Annotations','Annotations (English)'],
+    anno_pt:['Annotation in Portuguese','Annotations in Portuguese'],
+    platform:['Platform'],
+    engagement:['Overall engagement'],
+    // (We see Engagement normalised per platform / positively normalised, but we compute radii per-platform anyway)
+    post_pt:['Post in Portuguese'],
+    post_en:['Post in English'],
+    theme:['Theme'],
+    subtheme:['Sub-theme','Subtheme'],
+    detailed_status:['Detailed status as of January 18'],
+    summarised_status:['Summarised status'],
+    appendix:['Appendix'],
+    link:['URL','Link']
+  };
+
+  const STATUS_COLORS=new Map([
+    ['Removed','#ff6b6b'],
+    ['Removed in Brazil','#ff6b6b'],
+    ['Labeled','#ffbd4a'], ['Labelled','#ffbd4a'],
+    ['Online','#4cd97b'],
+    ['Unknown','#9aa8bb']
+  ]);
+  const extraStatus=d3.scaleOrdinal(['#8c9eff','#a5d6a7','#ffcc80','#80cbc4','#ce93d8','#ef9a9a']);
+  const themeColor=d3.scaleOrdinal(d3.schemeTableau10.concat(['#e07a5f','#3d405b','#81b29a','#f2cc8f','#f4a261','#2a9d8f','#e76f51','#a7c957','#bc6c25','#6d597a']));
+
+  const W=1180, M={t:120,r:28,b:90,l:110}; let H=1020; const rowH=160, rowGap=60, lanes=4;
+
+  const S={raw:[],platforms:[],themes:new Set(),subthemes:new Set(),statuses:new Set(),
+           themeFilter:new Set(),subthemeFilter:new Set(),statusFilter:new Set(),search:'',annoLang:'en',postLang:'en'};
+
+  const $svg=d3.select('#chart'); const g=$svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
+  const gAxis=g.append('g').attr('class','axis'); const gRows=g.append('g'); const gAnnos=g.append('g'); const tooltip=document.getElementById('tooltip');
+
+  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; buildAnnotations();};
+  document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
+  document.getElementById('btn-export').onclick=exportPNG;
+  let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter();},160)});
+
+  // Load CSV
+  fetch(CSV_URL, {cache:"no-store"})
+    .then(r=>{ if(!r.ok) throw new Error("Fetch failed: " + r.status); return r.text(); })
+    .then(text=>{
+      const header = (text.split(/\r?\n/)[0]||"");
+      const delim = header.includes(";")?";":","; // auto-detect CSV/semicolon
+      const rows = d3.dsvFormat(delim).parse(text);
+      ingest(rows);
+    })
+    .catch(err => banner("Could not load CSV. Ensure the GitHub raw URL is public. " + err.message));
+
+  function banner(msg){
+    const d=document.createElement('div');
+    d.style.cssText="margin-top:10px;padding:10px;border:1px solid #513; background:#1a0f0f;color:#ffd7d7;border-radius:10px";
+    d.textContent=msg;
+    document.querySelector('.wrap').prepend(d);
+  }
+
+  function col(r,keys){for(const k of keys){if(r[k]!=null&&String(r[k]).trim()!=='')return String(r[k]).trim();}return'';}
+  function num(r,keys){const v=col(r,keys);if(v==='')return NaN;const nv=+String(v).replace(/\u00A0/g,' ').replace(/[^\d.\-]/g,'');return isFinite(nv)?nv:NaN;}
+  function parseDate(s){if(!s)return null;let d=new Date(s);if(!isNaN(+d))return d;const fmts=['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M','%d/%m/%Y'];for(const f of fmts){const p=d3.timeParse(f);d=p(s);if(d)return d;}return null;}
+
+  function ingest(rows){
+    const clean=rows.map(r=>{
+      const date=parseDate(col(r,COLS.date)); if(!date) return null;
+      return {
+        date, platform:col(r,COLS.platform)||'Unknown', engagement:num(r,COLS.engagement)||0,
+        theme:col(r,COLS.theme)||'—', subtheme:col(r,COLS.subtheme)||'—',
+        post_en:col(r,COLS.post_en), post_pt:col(r,COLS.post_pt),
+        anno_en:col(r,COLS.anno_en), anno_pt:col(r,COLS.anno_pt),
+        detailed_status:col(r,COLS.detailed_status),
+        summarised_status:col(r,COLS.summarised_status)||'Unknown',
+        appendix:col(r,COLS.appendix), link:col(r,COLS.link)
+      };
+    }).filter(Boolean);
+
+    S.raw=clean; S.platforms=Array.from(new Set(clean.map(d=>d.platform))).sort();
+    S.themes=new Set(clean.map(d=>d.theme).filter(Boolean));
+    S.subthemes=new Set(clean.map(d=>d.subtheme).filter(Boolean));
+    S.statuses=new Set(clean.map(d=>d.summarised_status).filter(Boolean));
+    rebuild();
+  }
+
+  let xScale, rByPlat;
+  function rebuild(){
+    const tMin=d3.min(S.raw,d=>d.date), tMax=d3.max(S.raw,d=>d.date);
+    const rowsN=S.platforms.length; const neededH=rowsN*(rowH+rowGap)+40; H=M.t+neededH+M.b; d3.select('#chart').attr('viewBox',`0 0 ${W} ${H}`);
+    xScale=d3.scaleTime().domain([tMin,tMax]).range([0,W-M.l-M.r]);
+
+    // radius: per-platform normalization on Overall engagement
+    const byPlat=d3.rollup(S.raw,v=>d3.max(v,d=>d.engagement)||1,d=>d.platform);
+    rByPlat=new Map([...byPlat.entries()].map(([p,mx])=>[p,d3.scaleSqrt().domain([1,mx]).range([3,18])]));
+
+    gAxis.selectAll('*').remove(); gAxis.attr('transform',`translate(0, ${rowsN*(rowH+rowGap)})`).call(d3.axisBottom(xScale).ticks(10));
+
+    const rowSel=gRows.selectAll('g.row').data(S.platforms, d=>d);
+    const rowEnter=rowSel.enter().append('g').attr('class','row');
+    rowEnter.append('line').attr('class','track').attr('x1',0).attr('x2',W-M.l-M.r);
+    rowEnter.append('text').attr('class','platform-label').attr('x',-12).attr('y',5).attr('text-anchor','end');
+    const rowAll=rowEnter.merge(rowSel).attr('transform',(d,i)=>`translate(0, ${i*(rowH+rowGap)+rowH/2})`);
+    rowAll.select('line').attr('y1',0).attr('y2',0);
+    rowAll.select('text').text(d=>d);
+
+    rowAll.each(function(plat){
+      const nodes=S.raw.filter(d=>d.platform===plat).map((d,idx)=>({id:`${plat}-${idx}`,...d,r:rByPlat.get(plat)?.(Math.max(1,d.engagement))||5,x:xScale(d.date),y:0}));
+      const sel=d3.select(this).selectAll('g.dot').data(nodes, d=>d.id);
+      const gDot=sel.join(enter=>{
+        const g=enter.append('g').attr('class','dot').attr('tabindex',0)
+          .on('mouseenter',(e,d)=>showTooltip(e,d))
+          .on('mouseleave',hideTooltip)
+          .on('focus',(e,d)=>showTooltip(e,d))
+          .on('blur',hideTooltip)
+          .on('click',(e,d)=>openDetails(d));
+        g.append('circle').attr('class','ring').attr('fill','none').attr('stroke-width',3);
+        g.append('circle').attr('class','core').attr('stroke','#0f1622').attr('stroke-width',1.2);
+        return g;
+      });
+
+      d3.forceSimulation(nodes)
+        .force('x', d3.forceX(d=>xScale(d.date)).strength(0.5))
+        .force('y', d3.forceY(0).strength(0.08))
+        .force('collide', d3.forceCollide(d=>d.r+1.2))
+        .alpha(0.9).alphaDecay(0.02)
+        .on('tick',()=>{
+          gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
+          gDot.select('circle.ring').attr('r',d=>d.r+2).attr('stroke',d=>statusColor(d.summarised_status));
+          gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>themeColor(d.theme));
+        });
+    });
+
+    buildLegends(); buildSizeLegend(); buildAnnotations(); filter();
+  }
+
+  function statusColor(st){ if(!st) return '#7a8899'; if(STATUS_COLORS.has(st)) return STATUS_COLORS.get(st); const c=extraStatus(st); STATUS_COLORS.set(st,c); return c; }
+
+  function buildLegends(){
+    const themes=[...S.themes].sort();
+    const tBox=d3.select('#legend-themes');
+    tBox.selectAll('.legend-item').data(themes,d=>d).join(enter=>{
+      const div=enter.append('div').attr('class','legend-item');
+      div.html(d=>`<span class="swatch" style="background:${themeColor(d)}"></span> <span>${esc(d||'—')}</span>`);
+      div.on('click',(e,d)=>{ if(S.themeFilter.has(d)) S.themeFilter.delete(d); else S.themeFilter.add(d); updateLegendStates(); filter(); });
+    });
+
+    const sts=[...S.statuses].sort();
+    const sBox=d3.select('#legend-status');
+    sBox.selectAll('.legend-item').data(sts,d=>d).join(enter=>{
+      const div=enter.append('div').attr('class','legend-item');
+      div.html(d=>`<span class="stroke" style="border:2px solid ${statusColor(d)}"></span> <span>${esc(d||'—')}</span>`);
+      div.on('click',(e,d)=>{ if(S.statusFilter.has(d)) S.statusFilter.delete(d); else S.statusFilter.add(d); updateLegendStates(); filter(); });
+    });
+
+    updateLegendStates();
+  }
+  function updateLegendStates(){
+    d3.select('#legend-themes').selectAll('.legend-item').classed('dim', d=> S.themeFilter.size && !S.themeFilter.has(d));
+    d3.select('#legend-status').selectAll('.legend-item').classed('dim', d=> S.statusFilter.size && !S.statusFilter.has(d));
+  }
+
+  function buildSizeLegend(){
+    const box=d3.select('#size-legend'); box.selectAll('*').remove();
+    const svg=d3.create('svg').attr('viewBox','0 0 340 72'); box.node().appendChild(svg.node());
+    svg.append('text').attr('x',8).attr('y',14).attr('fill','#9fb3c8').attr('font-size',12).text('Dot area ∝ Overall engagement (per‑platform)');
+    const data=S.platforms.map(p=>{
+      const vals=S.raw.filter(d=>d.platform===p && isFinite(d.engagement)).map(d=>d.engagement);
+      return {p, min:d3.min(vals)||1, max:d3.max(vals)||1};
+    });
+    const r= d3.scaleSqrt().domain([1, d3.max(data,d=>d.max)||1]).range([3,18]);
+    data.slice(0,3).forEach((d,i)=>{
+      const y=28+i*20; const x0=22;
+      svg.append('text').attr('x',8).attr('y',y+4).attr('fill','#9fb3c8').attr('font-size',12).text(d.p);
+      svg.append('circle').attr('cx',x0+40).attr('cy',y).attr('r',r(d.min)).attr('fill','#5a7');
+      svg.append('circle').attr('cx',x0+90).attr('cy',y).attr('r',r(d.max)).attr('fill','#5a7');
+      svg.append('text').attr('x',x0+52).attr('y',y+4).attr('fill','#9fb3c8').attr('font-size',11).text('min');
+      svg.append('text').attr('x',x0+102).attr('y',y+4).attr('fill','#9fb3c8').attr('font-size',11).text('max');
+    });
+    const fmt=d3.format(',');
+    const list= data.map(d=>`${d.p}: ${fmt(d.min)}–${fmt(d.max)}`).join('  •  ');
+    svg.append('text').attr('x',8).attr('y',68).attr('fill','#9fb3c8').attr('font-size',11).text(list);
+  }
+
+  function buildAnnotations(){
+    const textFor = d => S.annoLang==='pt' ? d.anno_pt : d.anno_en;
+    const ann=S.raw.map(d=>({date:d.date, text:(textFor(d)||'').trim()})).filter(d=>d.text);
+    const key=a=>a.date.toISOString()+'|'+a.text; const uniq=[...new Map(ann.map(a=>[key(a),a])).values()].sort((a,b)=>a.date-b.date);
+    uniq.forEach((a,i)=>a.lane=i%lanes);
+    gAnnos.selectAll('*').remove(); if(!uniq.length) return;
+    const gA=gAnnos.selectAll('g.anno').data(uniq).join('g').attr('class','anno');
+    const yTop = - (rowGap/2) - 18;
+    gA.append('line').attr('class','anno-line').attr('x1',d=>xScale(d.date)).attr('x2',d=>xScale(d.date)).attr('y1', yTop - 18).attr('y2', S.platforms.length*(rowH+rowGap)-rowH/2 + 18);
+    gA.append('rect').attr('class','anno-badge').attr('x',d=>xScale(d.date)-6).attr('y',d=> (yTop - 40) - d.lane*18).attr('rx',4).attr('ry',4).attr('width',12).attr('height',12);
+    gA.append('text').attr('class','anno-text').attr('x',d=>xScale(d.date)+8).attr('y',d=> (yTop - 30) - d.lane*18).text(d=>d3.timeFormat('%b %d')(d.date)+': '+d.text).append('title').text(d=>d.text);
+  }
+
+  const fmt=d3.format(',');
+  function showTooltip(evt,d){
+    const el=tooltip; el.classList.remove('hidden');
+    const dateStr=d.date.toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const post = (S.postLang==='pt'? d.post_pt : d.post_en) || (S.postLang==='pt'? d.anno_pt : d.anno_en) || '(no text)';
+    const lines=[`<h4>${esc(d.platform)} • ${dateStr}</h4>`,`<p>${esc(post)}</p>`,
+      `<div class="meta">Theme: <b>${esc(d.theme)}</b> • Sub-theme: <b>${esc(d.subtheme)}</b></div>`,
+      `<div class="meta">Status: <b>${esc(d.summarised_status)}</b> • Engagement: <b>${fmt(Math.round(d.engagement))}</b></div>`];
+    el.innerHTML=lines.join('');
+    const {pageX:x,pageY:y}=evt; const maxW=420; el.style.left=Math.min(window.innerWidth-maxW-20,x+14)+'px'; el.style.top=(y+14)+'px';
+  }
+  function hideTooltip(){ tooltip.classList.add('hidden'); }
+
+  function openDetails(d){
+    const best = d.appendix || d.link;
+    if(!best){
+      window.open('https://drive.google.com/drive/folders/1KIBwCiGmlPwVcIKGcZVMGfqLcKB-qKQM?usp=drive_link','_blank','noopener');
+      return;
+    }
+    const yt=toYouTube(best); const drv=toDrive(best);
+    if(yt) window.open(yt,'_blank','noopener'); else if(drv) window.open(drv,'_blank','noopener'); else window.open(best,'_blank','noopener');
+  }
+  function toYouTube(u){ try{ const url=new URL(u); if(url.hostname.includes('youtube.com')){const id=url.searchParams.get('v'); if(id) return `https://www.youtube.com/embed/${id}`;} if(url.hostname==='youtu.be'){const id=url.pathname.slice(1); if(id) return `https://www.youtube.com/embed/${id}`;} }catch{} return null; }
+  function toDrive(u){ try{ const url=new URL(u); if(url.hostname.includes('drive.google.com')){ const m=url.pathname.match(/\/file\/d\/([\w-]+)/); if(m) return `https://drive.google.com/file/d/${m[1]}/preview`; return u; } }catch{} return null; }
+
+  function filter(){
+    const q=S.search; const hasTheme=S.themeFilter.size>0; const hasStatus=S.statusFilter.size>0; const hasSub=S.subthemeFilter.size>0;
+    gRows.selectAll('g.dot').classed('hidden', d=>{
+      if(hasTheme && !S.themeFilter.has(d.theme)) return true;
+      if(hasStatus && !S.statusFilter.has(d.summarised_status)) return true;
+      if(hasSub && !S.subthemeFilter.has(d.subtheme)) return true;
+      if(q){ const hay=[d.post_en,d.post_pt,d.anno_en,d.anno_pt,d.theme,d.subtheme,d.summarised_status,d.link,d.appendix].join(' ').toLowerCase(); if(!hay.includes(q)) return true; }
+      return false;
+    });
+  }
+
+  async function exportPNG(){
+    const svg=document.getElementById('chart'); const data=new XMLSerializer().serializeToString(svg); const blob=new Blob([data],{type:'image/svg+xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const img=new Image();
+    const vb=svg.viewBox.baseVal; const scale=2; const canvas=document.createElement('canvas'); canvas.width=vb.width*scale; canvas.height=vb.height*scale; const ctx=canvas.getContext('2d');
+    img.onload=()=>{ ctx.fillStyle=getComputedStyle(document.body).backgroundColor; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); URL.revokeObjectURL(url); canvas.toBlob((b)=>{ const a=document.createElement('a'); a.download='br-jan8-beeswarms-remote.png'; a.href=URL.createObjectURL(b); a.click(); }); }; img.src=url;
+  }
+
+// … rest of your beeswarm code …
+
+function esc(s){ 
+  return (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[m]));
+}
+
+// Close the wrapper function
+})();
+</script>
+</body>
+</html>
