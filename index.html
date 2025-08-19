@@ -34,16 +34,21 @@
   .legend-top .section{border:1px solid var(--stroke);border-radius:12px;padding:12px 12px 14px;background:#0e1520;margin-bottom:12px}
   .legend-top h3{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:700}
   .legend-top .legend-row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+
   .legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg);cursor:pointer}
   .legend-item .swatch{width:14px;height:14px;border-radius:50%;border:1.5px solid #fff3}
   .legend-item .stroke{border-radius:3px;height:10px;width:22px;background:transparent}
   .legend-item.dim{opacity:.35}
   .explain{margin:.2rem 0 .8rem;color:#9fb3c8;font-size:12px}
 
-  /* per‑platform size rows */
-  .size-legend .row{display:flex;align-items:center;gap:12px;margin:4px 0}
-  .size-legend .plat{min-width:110px;color:#9fb3c8}
-  .size-legend .num{color:#9fb3c8;font-size:11px}
+  /* COMPACT per‑platform size legend chips */
+  .size-chips{display:flex;flex-wrap:wrap;gap:10px 16px}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:4px 8px;border:1px solid var(--stroke);border-radius:999px;background:#0e1520;color:#9fb3c8;font-size:12px;white-space:nowrap}
+  .chip svg{width:40px;height:14px}
+
+  /* Stories row */
+  .story-item{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--stroke);border-radius:12px;background:#0e1520;color:var(--fg);cursor:pointer;font-size:12px}
+  .story-item.active{outline:2px solid #6fa7ff}
 
   .tool{position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.35;max-width:420px;box-shadow:0 10px 30px #0006}
   .tool h4{margin:0 0 6px;font-size:13px;color:var(--accent)}
@@ -52,16 +57,17 @@
 
   .hidden{display:none}
 
-  /* Context arrow + blink for posts with context */
-  @keyframes gentleBlink { from{opacity:1} to{opacity:.5} }
-  .ctx-arrow{fill:#6fa7ff; opacity:.9; animation: gentleBlink 2.4s ease-in-out infinite alternate;}
+  /* Callout labels for stories */
+  .callout text{font-size:12px; fill:var(--fg)}
+  .callout rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.2; rx:8; ry:8}
+  .callout line{stroke:#6fa7ff; stroke-width:1; opacity:0.9}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Top posts leading up to Jan 8, 2023 — all platforms</h1>
-    <p>Each dot is a post. <b>Dot area ∝ Overall engagement</b> (per‑platform). <b>Fill = Theme</b>. <b>Outer ring = Status</b>. Click any dot to open its source; if the post has an associated note, you’ll see it as <b>Context</b>.</p>
+    <p>Each dot is a post. <b>Dot area ∝ Overall engagement</b> (per‑platform). <b>Fill = Theme</b>. <b>Outer ring = Status</b>. Click any dot to open its source; if the post has an associated note, it appears as <b>Context</b>.</p>
   </header>
 
   <div class="controls">
@@ -84,7 +90,7 @@
     <button id="btn-export">Export PNG</button>
   </div>
 
-  <!-- TOP KEYS (4 rows) -->
+  <!-- TOP KEYS -->
   <div class="legend-top">
     <div class="section section-explain">
       <h3>What you are seeing</h3>
@@ -92,7 +98,12 @@
         Dots are posts. <b>Dot size</b>: Overall engagement (normalised per platform).
         <b>Fill</b>: Theme. <b>Outer ring</b>: Summarised status.
       </p>
-      <div class="size-legend" id="size-legend"></div>
+      <div id="size-chips" class="size-chips"></div>
+    </div>
+
+    <div class="section section-stories">
+      <h3>Stories</h3>
+      <div id="legend-stories" class="legend-row"></div>
     </div>
 
     <div class="section section-themes">
@@ -112,7 +123,7 @@
   </div>
 
   <div class="viz">
-    <svg id="chart" viewBox="0 0 1180 1020" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
+    <svg id="chart" viewBox="0 0 1180 1100" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
   </div>
 </div>
 
@@ -120,11 +131,10 @@
 
 <script>
 (() => {
-  // Default CSV (GitHub RAW). You can override at runtime with ?csv=...
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
   const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
 
-  // Column map (your headers + tolerant aliases)
+  // Column map (with Story)
   const COLS = {
     date:['Date'],
     anno_en:['Annotation','Annotations','Annotations (English)'],
@@ -138,10 +148,11 @@
     detailed_status:['Detailed status as of January 18'],
     summarised_status:['Summarised status'],
     annex:['Annex','Appendix'],
-    link:['URL','Link']
+    link:['URL','Link'],
+    story:['Story']
   };
 
-  // Status palette (Online = no outline)
+  // Status palette (Online = no outline; GETTR never draws status)
   const STATUS_COLORS = new Map([
     ['Removed by the user',    '#C96918'],
     ['Removed by platform',    '#E1524A'],
@@ -157,16 +168,18 @@
   );
 
   // Layout
-  const W=1180, M={t:140,r:28,b:90,l:120}; let H=1020; // extra top for top-axis
-  const rowH = 160, rowGap = 110; // wider spacing so dots don’t touch rows
+  const W=1180, M={t:160,r:28,b:90,l:120}; let H=1100;        // more top padding (top axis)
+  const rowH = 160, rowGap = 120;                             // wide gap so dots don't touch rows
   const $svg=d3.select('#chart'); const g=$svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
-  const gAxisTop=g.append('g').attr('class','axis'); const gRows=g.append('g'); const tooltip=document.getElementById('tooltip');
+  const gAxisTop=g.append('g').attr('class','axis'); const gRows=g.append('g'); const gCallouts=g.append('g'); const tooltip=document.getElementById('tooltip');
 
   const S={raw:[],data:[],platforms:[],themes:new Set(),subthemes:new Set(),statuses:new Set(),
+           stories:new Set(['Story 1','Story 2']),
+           activeStory:'All',
            themeFilter:new Set(),subthemeFilter:new Set(),statusFilter:new Set(),
            search:'',annoLang:'en',postLang:'en',from:null,to:null};
 
-  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value;};
+  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildCallouts();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
@@ -207,6 +220,7 @@
         post_pt:col(r,COLS.post_pt),
         context_en:col(r,COLS.anno_en),
         context_pt:col(r,COLS.anno_pt),
+        story:col(r,COLS.story) || '',            // "Story 1" / "Story 2" / ''
         detailed_status:col(r,COLS.detailed_status),
         summarised_status:col(r,COLS.summarised_status)||'Unknown',
         annex:col(r,COLS.annex),
@@ -219,6 +233,7 @@
     S.themes=new Set(clean.map(d=>d.theme).filter(Boolean));
     S.subthemes=new Set(clean.map(d=>d.subtheme).filter(Boolean));
     S.statuses=new Set(clean.map(d=>d.summarised_status).filter(Boolean));
+    S.stories=new Set(clean.map(d=>d.story).filter(Boolean)); // from data, if present
 
     // set date inputs
     const min = d3.min(clean,d=>d.date), max = d3.max(clean,d=>d.date);
@@ -227,6 +242,7 @@
     document.getElementById('to-date').value   = iso(max);
     S.from=min; S.to=max;
 
+    buildStoriesLegend();
     rebuild();
   }
 
@@ -236,19 +252,19 @@
     S.data = S.raw.filter(d => (!S.from || d.date>=S.from) && (!S.to || d.date<=S.to));
 
     const tMin=d3.min(S.data,d=>d.date), tMax=d3.max(S.data,d=>d.date);
-    const rowsN=S.platforms.length; const neededH=rowsN*(rowH+rowGap)+60; H=M.t+neededH+M.b; d3.select('#chart').attr('viewBox',`0 0 ${W} ${H}`);
+    const rowsN=S.platforms.length; const neededH=rowsN*(rowH+rowGap)+80; H=M.t+neededH+M.b; d3.select('#chart').attr('viewBox',`0 0 ${W} ${H}`);
     xScale=d3.scaleTime().domain([tMin,tMax]).range([0,W-M.l-M.r]);
 
-    // radius: per-platform normalization on Overall engagement
+    // radius: per-platform normalization on Overall engagement (smaller; GETTR very small)
     const byPlat=d3.rollup(S.data,v=>d3.max(v,d=>d.engagement)||1,d=>d.platform);
     rByPlat=new Map([...byPlat.entries()].map(([p,mx])=>{
-      const lohi = (p.toLowerCase()==='gettr') ? [1.3,3.6] : [2,9.5];
+      const lohi = (p.toLowerCase()==='gettr') ? [1.2,3.4] : [2,9];
       return [p, d3.scaleSqrt().domain([1,mx]).range(lohi)];
     }));
 
     // TOP timeline axis
     gAxisTop.selectAll('*').remove();
-    gAxisTop.attr('transform','translate(0,-30)').call(d3.axisTop(xScale).ticks(10));
+    gAxisTop.attr('transform','translate(0,-40)').call(d3.axisTop(xScale).ticks(10));
 
     const rowSel=gRows.selectAll('g.row').data(S.platforms, d=>d);
     const rowEnter=rowSel.enter().append('g').attr('class','row');
@@ -258,7 +274,7 @@
     rowAll.select('line').attr('y1',0).attr('y2',0);
     rowAll.select('text').text(d=>d);
 
-    // Per-row simulation
+    // Per-row dots
     rowAll.each(function(plat){
       const nodes=S.data.filter(d=>d.platform===plat).map((d,idx)=>({
         id:`${plat}-${idx}`, ...d,
@@ -273,55 +289,108 @@
           .on('focus',(e,d)=>showTooltip(e,d))
           .on('blur',hideTooltip)
           .on('click',(e,d)=>openDetails(d));
-        // status ring, dark separator, theme core, and context arrow
         g.append('circle').attr('class','ring-status').attr('fill','none').attr('stroke-width',3);
         g.append('circle').attr('class','ring-sep').attr('fill','none').attr('stroke','#101621').attr('stroke-width',2);
         g.append('circle').attr('class','core').attr('stroke','none');
-        g.append('path').attr('class','ctx-arrow').attr('d','M -12,0 l -8,-5 l 0,10 z'); // small left-pointing triangle
         return g;
       });
 
       d3.forceSimulation(nodes)
-        .force('x', d3.forceX(d=>xScale(d.date)).strength(0.65))
-        .force('y', d3.forceY(0).strength(0.1))
-        .force('collide', d3.forceCollide(d=>d.r+3))  // stronger so dots never touch
+        .force('x', d3.forceX(d=>xScale(d.date)).strength(0.8))
+        .force('y', d3.forceY(0).strength(0.14))
+        .force('collide', d3.forceCollide(d=>d.r+4))   // stronger: dots never touch
         .alpha(0.9).alphaDecay(0.02)
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
-
-          // arrow only when context present
-          gDot.select('path.ctx-arrow')
-            .attr('opacity', d => hasContext(d) ? 1 : 0);
-
-          // core fill
           gDot.select('circle.core')
             .attr('r',d=>d.r)
             .attr('fill',d=>themeColor(d.theme));
 
-          // Status handling — GETTR has no status
-          const needsOutline = d => (d.platform && d.platform.toLowerCase()==='gettr') ? false : (statusColor(d.summarised_status)!=='transparent');
+          const isGettr = (d)=> (d.platform||'').toLowerCase()==='gettr';
+          const needsOutline = d => !isGettr(d) && (statusColor(d.summarised_status)!=='transparent');
 
           gDot.select('circle.ring-sep')
-            .attr('r',d=>d.r+1.4)
+            .attr('r',d=>d.r+1.3)
             .attr('opacity',d=> needsOutline(d) ? 1 : 0);
 
           gDot.select('circle.ring-status')
-            .attr('r',d=>d.r+2.6)
-            .attr('stroke',d=> (d.platform && d.platform.toLowerCase()==='gettr') ? 'transparent' : statusColor(d.summarised_status))
+            .attr('r',d=>d.r+2.5)
+            .attr('stroke',d=> isGettr(d) ? 'transparent' : statusColor(d.summarised_status))
             .attr('opacity',d=> needsOutline(d) ? 1 : 0);
         });
     });
 
     buildLegends();
     buildSubthemeLegend();
-    buildSizeLegend();  // uses rByPlat to match chart radii
+    buildSizeChips();      // compact one-line chips
+    rebuildCallouts();     // story callouts linked to posts
     filter();
   }
 
-  function hasContext(d){
-    const t = (S.annoLang==='pt' ? d.context_pt : d.context_en) || '';
-    return t.trim().length>0;
+  // ================== STORIES ==================
+  function buildStoriesLegend(){
+    const el=d3.select('#legend-stories'); el.selectAll('*').remove();
+    const stories=['All', ...Array.from(S.stories).sort()];
+    el.selectAll('.story-item').data(stories).join('div')
+      .attr('class','story-item')
+      .classed('active', d=>d===S.activeStory)
+      .text(d=>d)
+      .on('click',(e,d)=>{ S.activeStory=d; d3.selectAll('.story-item').classed('active', x=>x===d); rebuildCallouts(); });
   }
+
+  function rebuildCallouts(){
+    // Callouts are for posts with context text.
+    const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
+    const nodes = S.data.filter(d=> (textFor(d)||'').trim().length>0);
+
+    // Filter by active story
+    const filt = nodes.filter(d => S.activeStory==='All' ? true : (d.story===S.activeStory));
+
+    gCallouts.selectAll('*').remove();
+    if(!filt.length) return;
+
+    // Place callouts in a top band per platform, tied by a line to the dot (x,y)
+    // We'll reuse the simulated x/y positions by reading them from the dot groups.
+    const dotIndex = new Map();
+    gRows.selectAll('g.dot').each(function(d){ dotIndex.set(d.id, d3.select(this).node()); });
+
+    // For overlap, we put callouts into 4 lanes per platform
+    const lanes=4, laneGap=18;
+
+    const byPlat = d3.group(filt, d=>d.platform);
+    byPlat.forEach((arr, plat) => {
+      // base y for labels above the row:
+      const rowIdx = S.platforms.indexOf(plat);
+      const rowY = rowIdx*(rowH+rowGap) + rowH/2;
+      const bandTop = rowY - (rowH/2) - 22;
+
+      arr.sort((a,b)=>a.date-b.date).forEach((d,i)=>{
+        const lane = i % lanes;
+        const node = dotIndex.get(`${plat}-${S.data.filter(x=>x.platform===plat).indexOf(d)}`); // fallback; may not match—so we'll query by nearest x
+
+        // Find dot transform for this data point
+        let x = xScale(d.date), y = rowY; // defaults
+        if(node){
+          const m = node.getAttribute('transform'); // "translate(x,y)"
+          const mm = /translate\(([^,]+),([^)]+)\)/.exec(m);
+          if(mm){ x=+mm[1]; y=rowY + (+mm[2]); }
+        }
+
+        const labelY = bandTop - lane*laneGap;
+
+        const g = gCallouts.append('g').attr('class','callout');
+        // connector line
+        g.append('line').attr('x1',x).attr('y1',labelY+18).attr('x2',x).attr('y2',y).attr('opacity',0.85);
+        // label box
+        const text = (S.annoLang==='pt'? d.context_pt : d.context_en) || '';
+        const short = text.length>140 ? text.slice(0,137)+'…' : text;
+        const w = Math.min(260, Math.max(140, short.length*3.8));
+        g.append('rect').attr('x',x - w/2).attr('y',labelY).attr('width',w).attr('height',22);
+        g.append('text').attr('x',x - w/2 + 8).attr('y',labelY+15).text(short).append('title').text(text);
+      });
+    });
+  }
+  // =============================================
 
   function statusColor(st){
     if (!st) return '#9aa8bb';
@@ -340,7 +409,7 @@
       div.on('click',(e,d)=>{ if(S.themeFilter.has(d)) S.themeFilter.delete(d); else S.themeFilter.add(d); updateLegendStates(); filter(); });
     });
 
-    // Status
+    // Status (GETTR has no status in plotting; legend still clickable for others)
     const sts=[...S.statuses].sort();
     const sBox=d3.select('#legend-status');
     sBox.selectAll('.legend-item').data(sts,d=>d).join(enter=>{
@@ -374,28 +443,26 @@
     d3.select('#legend-subthemes').selectAll('.legend-item').classed('dim', d=> S.subthemeFilter.size && !S.subthemeFilter.has(d));
   }
 
-  // Size legend: one compact line per platform: Platform — ○ ● — min–max
-  function buildSizeLegend(){
-    const box=d3.select('#size-legend'); box.selectAll('*').remove();
+  // COMPACT size legend chips (Platform — ◯ ◯ — 142–297,988)
+  function buildSizeChips(){
+    const box=document.getElementById('size-chips'); box.innerHTML='';
     const fmt=d3.format(',');
     S.platforms.forEach(p=>{
       const vals=S.raw.filter(d=>d.platform===p && isFinite(d.engagement)).map(d=>d.engagement);
       const min=d3.min(vals)||1, max=d3.max(vals)||1;
       const r = rByPlat.get(p) || d3.scaleSqrt().domain([1,max]).range([2,9]);
 
-      const row=document.createElement('div'); row.className='row';
-      const left=document.createElement('div'); left.className='plat'; left.textContent=p; row.appendChild(left);
+      const chip=document.createElement('div'); chip.className='chip';
+      const name=document.createElement('span'); name.textContent=p; chip.appendChild(name);
 
-      // inline SVG with two circles
-      const svg=d3.create('svg').attr('width',80).attr('height',18);
-      svg.append('circle').attr('cx',20).attr('cy',9).attr('r',r(min)).attr('fill','#5a7');
-      svg.append('circle').attr('cx',54).attr('cy',9).attr('r',r(max)).attr('fill','#5a7');
-      row.appendChild(svg.node());
+      const svg=d3.create('svg');
+      svg.append('circle').attr('cx',10).attr('cy',7).attr('r',r(min)).attr('fill','#5a7');
+      svg.append('circle').attr('cx',30).attr('cy',7).attr('r',r(max)).attr('fill','#5a7');
+      chip.appendChild(svg.node());
 
-      const nums=document.createElement('div'); nums.className='num'; nums.textContent = `${fmt(min)}–${fmt(max)}`;
-      row.appendChild(nums);
+      const nums=document.createElement('span'); nums.className='num'; nums.textContent=`${fmt(min)}–${fmt(max)}`; chip.appendChild(nums);
 
-      box.node().appendChild(row);
+      box.appendChild(chip);
     });
   }
 
