@@ -115,8 +115,8 @@
   </div>
 
   <div class="viz">
-    <!-- Plot at left + bigger gap + annotation sidebar at right -->
-    <svg id="chart" viewBox="0 0 1900 1200" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
+    <!-- Per‑platform annotation sidebars are drawn to the right of each row -->
+    <svg id="chart" viewBox="0 0 1900 1400" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
   </div>
 </div>
 
@@ -125,11 +125,11 @@
 <script>
 (() => {
   // ---------- Layout ----------
-  const SIDE_W = 380;          // sidebar width
-  const GAP_W  = 100;          // **bigger gap** between plot and sidebar
+  const SIDE_W = 300;          // width of the per‑row sidebar column
+  const GAP_W  = 80;           // gap between plot and each row’s sidebar
   const PLOT_W = 1400;         // plot width
   const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
-  const H0 = 1200;
+  const H0 = 1400;
   const M={t:170,r:28,b:90,l:120};
   const rowH = 160, rowGap = 120;
 
@@ -183,17 +183,17 @@
   // ---------- SVG ----------
   const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${H0}`);
   const defs = $svg.append('defs');
-  // Arrowhead for connectors
-  defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
-    .attr('refX',10).attr('refY',5).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+  defs.append('marker')            // arrowhead for connectors
+    .attr('id','arrow').attr('viewBox','0 0 10 10')
+    .attr('refX',10).attr('refY',5).attr('markerWidth',7).attr('markerHeight',7).attr('orient','auto')
     .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#6fa7ff');
 
   const gRoot = $svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
   const gPlot = gRoot.append('g');
   const gAxisTop = gPlot.append('g').attr('class','axis');
   const gRows = gPlot.append('g');
-  const gLines = gRoot.append('g').attr('class','sidebar-lines'); // behind boxes
-  const gSidebar = gRoot.append('g'); // boxes drawn above lines
+  const gLines = gRoot.append('g');   // connector lines under boxes
+  const gSideRoot = gRoot.append('g'); // per‑row sidebars
 
   const innerW = PLOT_W;
   let innerH = 1000;
@@ -208,7 +208,7 @@
   };
 
   // ---------- Controls ----------
-  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebar();};
+  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
@@ -238,8 +238,8 @@
     const clean=rows.map((r,i)=>{
       const date=parseDate(col(r,COLS.date)); if(!date) return null;
       const storyRaw=(col(r,COLS.story)||'').trim();
-      const story = storyRaw==='Story 1' ? 'Planning the riots'
-                   : storyRaw==='Story 2' ? 'Military involvement'
+      const story = storyRaw==='Story 1' ? STORY_PLANNING
+                   : storyRaw==='Story 2' ? STORY_MILITARY
                    : storyRaw;
       return {
         uid:i,
@@ -255,7 +255,7 @@
         story,
         detailed_status:col(r,COLS.detailed_status),
         summarised_status:col(r,COLS.summarised_status)||'Unknown',
-        annex:col(r,COLS.annex),         // will be used EXACT as provided
+        annex:col(r,COLS.annex),
         link:col(r,COLS.link)
       };
     }).filter(Boolean);
@@ -344,7 +344,8 @@
         .alpha(0.9).alphaDecay(0.02)
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
-          gDot.each(d=>posByUid.set(d.uid,{x:d.x, y:rowBaseY + d.y}));
+          gDot.each(d=>posByUid.set(d.uid,{x:d.x, y:rowBaseY + d.y, rowY:rowBaseY}));
+
           gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>themeColor(d.theme));
           const needsOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
           gDot.select('circle.ring-sep').attr('r',d=>d.r+1.3).attr('opacity',d=>needsOutline(d)?1:0);
@@ -359,7 +360,7 @@
     buildSubthemeLegend();
     buildSizeChips();
     applyStoryHighlight();
-    rebuildSidebar();
+    rebuildSidebars();
     filter();
   }
 
@@ -419,7 +420,7 @@
   // ---------- Stories ----------
   function buildStoriesLegend(){
     const el=d3.select('#legend-stories'); el.selectAll('*').remove();
-    const stories=['All', 'Planning the riots', 'Military involvement'];
+    const stories=['All', STORY_PLANNING, STORY_MILITARY];
     el.selectAll('.story-item').data(stories).join('div')
       .attr('class','story-item')
       .classed('active', d=>d===S.activeStory)
@@ -427,7 +428,7 @@
       .on('click',(e,d)=>{
         S.activeStory=d;
         d3.selectAll('.story-item').classed('active', x=>x===d);
-        if(d==='Planning the riots'){
+        if(d===STORY_PLANNING){
           const max=d3.max(S.raw,x=>x.date);
           const start=new Date('2022-12-15T00:00:00');
           S.from=start; S.to=max;
@@ -443,8 +444,8 @@
       });
   }
   function applyStoryHighlight(){
-    const isPlanning = S.activeStory==='Planning the riots';
-    const isMilitary = S.activeStory==='Military involvement';
+    const isPlanning = S.activeStory===STORY_PLANNING;
+    const isMilitary = S.activeStory===STORY_MILITARY;
     gRows.selectAll('g.dot').classed('dimStory', d=>{
       if(isPlanning)  return !planningThemes.has(d.theme);
       if(isMilitary)  return !militarySubthemes.has(d.subtheme);
@@ -452,7 +453,7 @@
     });
   }
 
-  // ---------- Sidebar / Annotations ----------
+  // ---------- Sidebar per row ----------
   function wrapSvgText(textSel, width, lineHeight=14, maxLines=7) {
     textSel.each(function() {
       const text = d3.select(this);
@@ -478,64 +479,72 @@
     });
   }
 
-  function rebuildSidebar(){
+  function rebuildSidebars(){
     gLines.selectAll('*').remove();
-    gSidebar.selectAll('*').remove();
-
-    // Only show annotations when a Story is selected
-    if (S.activeStory==='All') return;
+    gSideRoot.selectAll('*').remove();
+    if (S.activeStory==='All') return; // only show when a Story is selected
 
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
-    let items = S.data.filter(d => (textFor(d)||'').trim().length>0);
-    if (S.activeStory==='Planning the riots') items = items.filter(d=>d.story==='Planning the riots');
-    if (S.activeStory==='Military involvement') items = items.filter(d=>d.story==='Military involvement');
-    items.sort((a,b)=>a.date-b.date);
-
-    const xLeft = innerW + GAP_W;  // **bigger gap**
-    const yTop  = -40;
-    gSidebar.attr('transform',`translate(${xLeft},${yTop})`);
-
-    gSidebar.append('text')
-      .attr('x',0).attr('y',-12).attr('fill','#9fb3c8').attr('font-size',12)
-      .text('CONTEXT (chronological)');
-
-    const BOX_W = SIDE_W - 20;
-    const V_PAD = 8;
-    const rowGap = 10;
+    const perRow = new Map(S.platforms.map(p=>[p,[]]));
+    S.data.forEach(d=>{
+      const txt=(textFor(d)||'').trim();
+      if(!txt) return;
+      if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
+      if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
+      perRow.get(d.platform)?.push(d);
+    });
     const fmtDate=d3.timeFormat('%b %d');
-    let currentY = 0;
 
-    items.forEach((d) => {
-      const full = `${fmtDate(d.date)} — ${(textFor(d)||'').trim()}`;
-      const g = gSidebar.append('g').attr('class','item').attr('transform',`translate(0,${currentY})`);
-      const t = g.append('text').attr('x',8).attr('y',V_PAD-4).attr('fill','#e6eef7').attr('font-size',12);
-      t.text(full);
-      wrapSvgText(t, BOX_W, 14, 7);
+    S.platforms.forEach((plat,iRow)=>{
+      const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
+      if(!items.length) return;
 
-      const lines = t.selectAll('tspan').nodes().length || 1;
-      const textH = lines * 14;
-      const boxH = textH + V_PAD*2;
+      const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
+      const xLeft = innerW + GAP_W;  // start of this row’s sidebar column
+      const yTop  = rowBaseY - rowH/2; // column aligned to row
+      const gCol = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
 
-      g.insert('rect','text')
-        .attr('width',BOX_W).attr('height',boxH)
-        .attr('rx',8).attr('ry',8)
-        .attr('fill','#0b1220').attr('stroke','#6fa7ff').attr('stroke-width',1.2);
+      // column title once per row
+      gCol.append('text').attr('x',0).attr('y',-10).attr('fill','#9fb3c8').attr('font-size',11).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      t.attr('y',0);
+      const BOX_W = SIDE_W;
+      const V_PAD = 8;
+      const rowGapBox = 8;
+      let yCursor = 0;
 
-      // connector with arrow
-      const pos = posByUid.get(d.uid);
-      if (pos) {
-        const x1 = pos.x, y1 = pos.y;
-        const x2 = innerW + GAP_W - 12;          // into the gap, aiming at box center
-        const y2 = yTop + currentY + boxH/2;
-        gLines.append('path')
-          .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-          .attr('stroke','#6fa7ff').attr('fill','none').attr('opacity',0.9)
-          .attr('marker-end','url(#arrow)');
-      }
+      items.forEach(d=>{
+        const full = `${fmtDate(d.date)} — ${(textFor(d)||'').trim()}`;
 
-      currentY += boxH + rowGap;
+        const g = gCol.append('g').attr('transform',`translate(0,${yCursor})`);
+        const t = g.append('text').attr('x',8).attr('y',V_PAD-4).attr('fill','#e6eef7').attr('font-size',12);
+        t.text(full);
+        wrapSvgText(t, BOX_W, 14, 7);
+
+        const lines = t.selectAll('tspan').nodes().length || 1;
+        const textH = lines * 14;
+        const boxH = textH + V_PAD*2;
+
+        g.insert('rect','text')
+          .attr('width',BOX_W).attr('height',boxH)
+          .attr('rx',8).attr('ry',8)
+          .attr('fill','#0b1220').attr('stroke','#6fa7ff').attr('stroke-width',1.2);
+
+        t.attr('y',0);
+
+        // connector
+        const pos = posByUid.get(d.uid);
+        if(pos){
+          const x1 = pos.x, y1 = pos.y;
+          const x2 = innerW + GAP_W - 10;     // end in the gap just before box
+          const y2 = yTop + yCursor + boxH/2; // middle of this box
+          gLines.append('path')
+            .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
+            .attr('stroke','#6fa7ff').attr('fill','none').attr('opacity',0.95)
+            .attr('marker-end','url(#arrow)');
+        }
+
+        yCursor += boxH + rowGapBox;
+      });
     });
   }
 
@@ -580,7 +589,7 @@
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
-  // IMPORTANT: open Annex EXACTLY as provided; fallback to URL; no transforms
+  // Open Annex EXACTLY as given; fallback to URL
   function openDetails(d){
     const best = (d.annex && d.annex.trim()) ? d.annex.trim() : (d.link && d.link.trim()) ? d.link.trim() : null;
     if(!best){
