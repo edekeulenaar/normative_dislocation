@@ -135,11 +135,8 @@
 <script>
 (() => {
   // ------- Layout -------
-  const SIDE_W = 320;
-  const GAP_W  = 100;
-  const PLOT_W = 1400;
+  const SIDE_W = 320, GAP_W = 100, PLOT_W = 1400;
   const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
-  const H0 = 1400;
   const M={t:170,r:28,b:90,l:120};
   const rowH = 160, rowGap = 120;
 
@@ -176,6 +173,7 @@
   const themeColor = d3.scaleOrdinal(
     d3.schemeTableau10.concat(['#e07a5f','#3d405b','#81b29a','#f2cc8f','#f4a261','#2a9d8f','#e76f51','#a7c957','#bc6c25','#6d597a'])
   );
+
   const STORY_PLANNING = 'Planning the riots';
   const STORY_MILITARY = 'Military involvement';
   const planningThemes = new Set([
@@ -187,8 +185,8 @@
   ]);
   const militarySubthemes = new Set(['Military support','Military barracks']);
 
-  // ------- SVG & layers -------
-  const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${H0}`);
+  // SVG & layers
+  const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} 1400`);
   const defs = $svg.append('defs');
   defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
     .attr('refX',10).attr('refY',5).attr('markerWidth',7).attr('markerHeight',7).attr('orient','auto')
@@ -200,12 +198,12 @@
   const gRows = gPlot.append('g');
 
   const gLines = gRoot.append('g');     // connectors
-  const gSideRoot = gRoot.append('g');  // chips + placeholders
+  const gSideRoot = gRoot.append('g');  // chips & placeholders
   const gOverlay = gRoot.append('g');   // expanded cards
 
   const tooltip = document.getElementById('tooltip');
 
-  // ------- State -------
+  // State
   const S={
     raw:[], data:[], platforms:[], themes:new Set(), subthemes:new Set(), statuses:new Set(),
     activeStory:'All',
@@ -213,14 +211,14 @@
     search:'', annoLang:'en', postLang:'en', from:null, to:null
   };
 
-  // ------- Controls -------
-  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars(true);};
+  // Controls
+  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
   let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter(true);},160)});
 
-  // ------- Utils -------
+  // Utils
   const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
   function col(r,keys){for(const k of keys){if(r[k]!=null&&String(r[k]).trim()!=='')return String(r[k]).trim();}return'';}
@@ -228,7 +226,7 @@
   function parseDate(s){if(!s)return null;let d=new Date(s);if(!isNaN(+d))return d;const fmts=['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M','%d/%m/%Y'];for(const f of fmts){const p=d3.timeParse(f);d=p(s);if(d)return d;}return null;}
   function statusColor(st){ if (!st) return '#9aa8bb'; if (STATUS_COLORS.has(st)) return STATUS_COLORS.get(st); return '#9aa8bb'; }
 
-  // Decide if a datum is currently visible under filters/search
+  // Visibility test (filters/search)
   function datumVisible(d){
     if(S.themeFilter.size && !S.themeFilter.has(d.theme)) return false;
     if(S.statusFilter.size && !S.statusFilter.has(d.summarised_status)) return false;
@@ -240,7 +238,7 @@
     return true;
   }
 
-  // ------- Load CSV -------
+  // Load CSV
   fetch(CSV_URL,{cache:"no-store"}).then(r=>r.text()).then(text=>{
     const header=(text.split(/\r?\n/)[0]||""); const delim=header.includes(";")?";":",";
     const rows=d3.dsvFormat(delim).parse(text); ingest(rows);
@@ -276,395 +274,4 @@
         annex:col(r,COLS.annex),
         link:col(r,COLS.link)
       };
-    }).filter(Boolean);
-
-    S.raw=clean;
-
-    const desired=['Telegram','GETTR','Twitter','YouTube','Facebook','Instagram'];
-    const present=Array.from(new Set(clean.map(d=>d.platform)));
-    S.platforms = desired.filter(p=>present.includes(p)).concat(present.filter(p=>!desired.includes(p)));
-
-    S.themes=new Set(clean.map(d=>d.theme).filter(Boolean));
-    S.subthemes=new Set(clean.map(d=>d.subtheme).filter(Boolean));
-    S.statuses=new Set(clean.map(d=>d.summarised_status).filter(Boolean));
-
-    const min=d3.min(clean,d=>d.date), max=d3.max(clean,d=>d.date);
-    const iso=d=>d.toISOString().slice(0,10);
-    document.getElementById('from-date').value=iso(min);
-    document.getElementById('to-date').value=iso(max);
-    S.from=min; S.to=max;
-
-    buildStoriesLegend();
-    rebuild();
-  }
-
-  // ------- Build -------
-  let xScale, rByPlat, posByUid=new Map();
-
-  function rebuild(){
-    S.data=S.raw.filter(d=>(!S.from||d.date>=S.from)&&(!S.to||d.date<=S.to));
-
-    const tMin=d3.min(S.data,d=>d.date), tMax=d3.max(S.data,d=>d.date);
-    const innerH=S.platforms.length*(rowH+rowGap);
-    d3.select('#chart').attr('viewBox',`0 0 ${M.l+PLOT_W+GAP_W+SIDE_W+M.r} ${M.t+innerH+M.b}`);
-
-    xScale=d3.scaleTime().domain([tMin,tMax]).range([0,PLOT_W]);
-
-    const byPlat=d3.rollup(S.data,v=>d3.max(v,d=>d.engagement)||1,d=>d.platform);
-    rByPlat=new Map([...byPlat.entries()].map(([p,mx])=>{
-      const lohi=(p.toLowerCase()==='gettr')?[1.2,3.4]:[2,9];
-      return [p,d3.scaleSqrt().domain([1,mx]).range(lohi)];
-    }));
-
-    const fmtTop=d3.timeFormat('%b %d');
-    gAxisTop.selectAll('*').remove();
-    gAxisTop.attr('transform','translate(0,-40)')
-      .call(d3.axisTop(xScale).ticks(12).tickFormat(d=>fmtTop(d).toUpperCase()));
-
-    const rowSel=gRows.selectAll('g.row').data(S.platforms,d=>d);
-    const rowEnter=rowSel.enter().append('g').attr('class','row');
-    rowEnter.append('line').attr('class','track').attr('x1',0).attr('x2',PLOT_W);
-    rowEnter.append('text').attr('class','platform-label').attr('x',-12).attr('y',5).attr('text-anchor','end');
-    const rowAll=rowEnter.merge(rowSel).attr('transform',(d,i)=>`translate(0,${i*(rowH+rowGap)+rowH/2})`);
-    rowAll.select('line').attr('y1',0).attr('y2',0);
-    rowAll.select('text').text(d=>d.toUpperCase());
-
-    posByUid.clear();
-
-    // Show placeholders if a story is active
-    if (S.activeStory!=='All') showLoadingSidebars();
-
-    let pending = 0;
-    rowAll.each(function(plat,iRow){
-      const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
-      const nodes=S.data.filter(d=>d.platform===plat).map(d=>({
-        ...d,
-        r:rByPlat.get(plat)?.(Math.max(1,d.engagement))||4,
-        x:xScale(d.date), y:0
-      }));
-
-      const sel=d3.select(this).selectAll('g.dot').data(nodes,d=>d.uid);
-      const gDot=sel.join(enter=>{
-        const g=enter.append('g').attr('class','dot').attr('tabindex',0)
-          .on('mouseenter',(e,d)=>showTooltip(e,d))
-          .on('mouseleave',hideTooltip)
-          .on('focus',(e,d)=>showTooltip(e,d))
-          .on('blur',hideTooltip)
-          .on('click',(e,d)=>openDetails(d));
-        g.append('circle').attr('class','ring-status').attr('fill','none').attr('stroke-width',3);
-        g.append('circle').attr('class','ring-sep').attr('fill','none').attr('stroke','#101621').attr('stroke-width',2);
-        g.append('circle').attr('class','core').attr('stroke','none');
-        return g;
-      });
-
-      const sim = d3.forceSimulation(nodes)
-        .force('x',d3.forceX(d=>xScale(d.date)).strength(0.8))
-        .force('y',d3.forceY(0).strength(0.14))
-        .force('collide',d3.forceCollide(d=>d.r+4))
-        .alpha(0.9).alphaDecay(0.02)
-        .on('tick',()=>{
-          gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
-          gDot.each(d=>posByUid.set(d.uid,{x:d.x, y:rowBaseY + d.y, rowY:rowBaseY}));
-          gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>themeColor(d.theme));
-          const needsOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
-          gDot.select('circle.ring-sep').attr('r',d=>d.r+1.3).attr('opacity',d=>needsOutline(d)?1:0);
-          gDot.select('circle.ring-status')
-            .attr('r',d=>d.r+2.5)
-            .attr('stroke',d=>isGETTR(d)?'transparent':statusColor(d.summarised_status))
-            .attr('opacity',d=>needsOutline(d)?1:0);
-        });
-
-      pending++;
-      sim.on('end',()=>{ if(--pending===0) rebuildSidebars(true); });
-    });
-
-    buildLegends();
-    buildSubthemeLegend();
-    buildSizeChips();
-    applyStoryHighlight();
-    filter(false); // don’t rebuild sidebars twice here
-  }
-
-  function showLoadingSidebars(){
-    gSideRoot.selectAll('*').remove();
-    const xLeft = PLOT_W + GAP_W;
-    S.platforms.forEach((plat,iRow)=>{
-      const yTop = iRow*(rowH+rowGap);
-      const g = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-      g.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
-      g.append('text').attr('class','loading').attr('x',0).attr('y',20).text('Loading annotations…');
-    });
-  }
-
-  // ------- Legends & size chips -------
-  function buildLegends(){
-    const themes=[...S.themes].sort();
-    d3.select('#legend-themes').selectAll('.legend-item').data(themes,d=>d).join(enter=>{
-      const div=enter.append('div').attr('class','legend-item');
-      div.html(d=>`<span class="swatch" style="background:${themeColor(d)}"></span> <span>${esc(d||'—')}</span>`);
-      div.on('click',(e,d)=>{ if(S.themeFilter.has(d)) S.themeFilter.delete(d); else S.themeFilter.add(d); updateLegendStates(); filter(true); });
-    });
-
-    const sts=[...S.statuses].sort();
-    d3.select('#legend-status').selectAll('.legend-item').data(sts,d=>d).join(enter=>{
-      const div=enter.append('div').attr('class','legend-item');
-      const cHTML = d=>{
-        const c=statusColor(d); const style=c==='transparent'?'border:2px dashed #567; opacity:.6':`border:2px solid ${c}`;
-        return `<span class="stroke" style="${style}"></span> <span>${esc(d||'—')}</span>`;
-      };
-      div.html(cHTML);
-      div.on('click',(e,d)=>{ if(S.statusFilter.has(d)) S.statusFilter.delete(d); else S.statusFilter.add(d); updateLegendStates(); filter(true); });
-    });
-
-    updateLegendStates();
-  }
-  function buildSubthemeLegend(){
-    const st=[...S.subthemes].sort();
-    d3.select('#legend-subthemes').selectAll('.legend-item').data(st,d=>d).join(enter=>{
-      const div=enter.append('div').attr('class','legend-item');
-      div.html(d=>`<span class="swatch" style="background:#556b8e"></span> <span>${esc(d||'—')}</span>`);
-      div.on('click',(e,d)=>{ if(S.subthemeFilter.has(d)) S.subthemeFilter.delete(d); else S.subthemeFilter.add(d); updateLegendStates(); filter(true); });
-    });
-  }
-  function updateLegendStates(){
-    d3.select('#legend-themes').selectAll('.legend-item').classed('dim', d=> S.themeFilter.size && !S.themeFilter.has(d));
-    d3.select('#legend-status').selectAll('.legend-item').classed('dim', d=> S.statusFilter.size && !S.statusFilter.has(d));
-    d3.select('#legend-subthemes').selectAll('.legend-item').classed('dim', d=> S.subthemeFilter.size && !S.subthemeFilter.has(d));
-  }
-  function buildSizeChips(){
-    const box=document.getElementById('size-chips'); box.innerHTML='';
-    const fmt=d3.format(',');
-    S.platforms.forEach(p=>{
-      const vals=S.raw.filter(d=>d.platform===p && isFinite(d.engagement)).map(d=>d.engagement);
-      const min=d3.min(vals)||1, max=d3.max(vals)||1;
-      const r = rByPlat && rByPlat.get(p) ? rByPlat.get(p) : d3.scaleSqrt().domain([1,max]).range([2,9]);
-      const chip=document.createElement('div'); chip.className='chip';
-      const name=document.createElement('span'); name.textContent=p; chip.appendChild(name);
-      const svg=d3.create('svg');
-      svg.append('circle').attr('cx',10).attr('cy',7).attr('r',r(min)).attr('fill','#5a7');
-      svg.append('circle').attr('cx',30).attr('cy',7).attr('r',r(max)).attr('fill','#5a7');
-      chip.appendChild(svg.node());
-      const nums=document.createElement('span'); nums.textContent=`${fmt(min)}–${fmt(max)}`; chip.appendChild(nums);
-      box.appendChild(chip);
-    });
-  }
-
-  // ------- Stories -------
-  function buildStoriesLegend(){
-    const el=d3.select('#legend-stories'); el.selectAll('*').remove();
-    const stories=['All', STORY_PLANNING, STORY_MILITARY];
-    el.selectAll('.story-item').data(stories).join('div')
-      .attr('class','story-item')
-      .classed('active', d=>d===S.activeStory)
-      .text(d=>d)
-      .on('click',(e,d)=>{
-        S.activeStory=d;
-        d3.selectAll('.story-item').classed('active', x=>x===d);
-        // clear and show placeholders for new story
-        gOverlay.selectAll('*').remove();
-        gSideRoot.selectAll('*').remove();
-        gLines.selectAll('*').remove();
-        if (d!=='All') showLoadingSidebars();
-
-        if(d===STORY_PLANNING){
-          const max=d3.max(S.raw,x=>x.date);
-          const start=new Date('2022-12-15T00:00:00');
-          S.from=start; S.to=max;
-          document.getElementById('from-date').value=start.toISOString().slice(0,10);
-          document.getElementById('to-date').value=max.toISOString().slice(0,10);
-        }else{
-          const min=d3.min(S.raw,x=>x.date), max=d3.max(S.raw,x=>x.date);
-          S.from=min; S.to=max;
-          document.getElementById('from-date').value=min.toISOString().slice(0,10);
-          document.getElementById('to-date').value=max.toISOString().slice(0,10);
-        }
-        rebuild();
-      });
-  }
-  function applyStoryHighlight(){
-    const isPlanning = S.activeStory===STORY_PLANNING;
-    const isMilitary = S.activeStory===STORY_MILITARY;
-    gRows.selectAll('g.dot').classed('dimStory', d=>{
-      if(isPlanning)  return !planningThemes.has(d.theme);
-      if(isMilitary)  return !militarySubthemes.has(d.subtheme);
-      return false;
-    });
-  }
-
-  // ------- Sidebars + expandable chips (respect filters) -------
-  function rebuildSidebars(clearOnly){
-    gLines.selectAll('*').remove();
-    gOverlay.selectAll('*').remove();
-    if (clearOnly!==true) gSideRoot.selectAll('*').remove();
-    if (S.activeStory==='All') return;
-
-    const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
-
-    // group visible items per platform
-    const perRow = new Map(S.platforms.map(p=>[p,[]]));
-    S.data.forEach(d=>{
-      const txt=(textFor(d)||'').trim();
-      if(!txt) return;
-      if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
-      if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
-      if(!datumVisible(d)) return; // <— hide annotations for filtered‑out posts
-      perRow.get(d.platform)?.push(d);
-    });
-
-    const fmtDate=d3.timeFormat('%b %d');
-
-    S.platforms.forEach((plat,iRow)=>{
-      const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
-      if(!items.length) return;
-      const xLeft = PLOT_W + GAP_W;
-      const yTop  = iRow*(rowH+rowGap);
-      const gCol = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-      gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
-
-      const chipH = 28, chipGap=8, lanes = Math.min(4, Math.ceil(items.length/6) || 1);
-      const laneW = Math.floor(SIDE_W/lanes) - (lanes>1?6:0);
-      const laneX = i => i*(laneW+6);
-      const laneY = Array(lanes).fill(18);
-      const chipPad=10;
-
-      const overlayRow = gOverlay.append('g');
-      let expandedForUid = null;
-      let expandedGroup = null;
-      let connector = null;
-
-      items.forEach(d=>{
-        let k=0, best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i] < best){ best=laneY[i]; k=i; } }
-        const g = gCol.append('g').attr('class','chip-g').style('cursor','pointer')
-                       .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
-
-        const label = fmtDate(d.date).toUpperCase();
-        const tmp = g.append('text').text(label).attr('x',0).attr('y',0).attr('opacity',0);
-        const w = Math.max(60, tmp.node().getComputedTextLength() + chipPad*2); tmp.remove();
-        g.append('rect').attr('width',w).attr('height',chipH).attr('rx',8).attr('ry',8);
-        g.append('text').attr('x',w/2).attr('y',chipH/2+4).attr('text-anchor','middle').text(label);
-        laneY[k]+= chipH + chipGap;
-
-        g.on('click',()=>{
-          if(expandedForUid === d.uid){ // toggle close
-            expandedForUid = null;
-            if(expandedGroup){ expandedGroup.remove(); expandedGroup=null; }
-            if(connector){ connector.remove(); connector=null; }
-            return;
-          }
-          expandedForUid = d.uid;
-          if(expandedGroup){ expandedGroup.remove(); }
-          if(connector){ connector.remove(); }
-          expandedGroup = overlayRow.append('g').attr('class','xchip'); // always on top
-
-          const bodyText = (textFor(d)||'').trim();
-          const x = xLeft;
-          const y = yTop + 18;
-          const maxW = SIDE_W;
-
-          // header
-          const head = expandedGroup.append('text').attr('x',12).attr('y',20).text(`${label} — ${d.platform}`);
-          // Close (×)
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-14).attr('y',18)
-            .text('×').on('click',()=>{
-              expandedForUid=null;
-              if(expandedGroup){ expandedGroup.remove(); expandedGroup=null; }
-              if(connector){ connector.remove(); connector=null; }
-            });
-
-          const body = expandedGroup.append('text').attr('x',12).attr('y',34);
-          wrapSvgText(body, maxW-22, 16, 100, bodyText);
-          const lines = body.selectAll('tspan').nodes().length || 1;
-          const boxH = 20 + (lines*16) + 16;
-
-          expandedGroup.insert('rect','text')
-            .attr('width',maxW).attr('height',boxH).attr('rx',10).attr('ry',10);
-
-          expandedGroup.attr('transform',`translate(${x},${y})`);
-
-          // connector
-          const pos = posByUid.get(d.uid);
-          if(pos){
-            const x1 = pos.x, y1 = pos.y;
-            const x2 = PLOT_W + GAP_W - 10;
-            const y2 = y + boxH/2;
-            connector = gLines.append('path')
-              .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-              .attr('stroke','#6fa7ff').attr('stroke-width',1.6).attr('fill','none')
-              .attr('marker-end','url(#arrow)');
-          }
-        });
-      });
-    });
-  }
-
-  function wrapSvgText(sel, width, lineHeight, maxLines, rawText){
-    sel.each(function(){
-      const text = d3.select(this).text('');
-      const words = (rawText||'').split(/\s+/).filter(Boolean);
-      let line=[], lineNumber=0;
-      let tspan = text.append('tspan').attr('x', 12).attr('dy', lineHeight).text('');
-      words.forEach(w=>{
-        line.push(w); tspan.text(line.join(' '));
-        if (tspan.node().getComputedTextLength() > width){
-          line.pop(); tspan.text(line.join(' '));
-          line=[w]; tspan = text.append('tspan').attr('x',12).attr('dy',lineHeight).text(w);
-          lineNumber++; if(lineNumber>maxLines){ tspan.text('…'); return; }
-        }
-      });
-    });
-  }
-
-  // ------- Filter / Range -------
-  function filter(rebuildSidebarsToo){
-    gRows.selectAll('g.dot').classed('hidden', d=>!datumVisible(d));
-    if (S.activeStory!=='All' && rebuildSidebarsToo) {
-      // rebuild sidebars so only annotations for visible posts remain
-      rebuildSidebars(true);
-    }
-  }
-
-  function applyRange(){
-    const fromV=document.getElementById('from-date').value;
-    const toV=document.getElementById('to-date').value;
-    S.from = fromV ? new Date(fromV+'T00:00:00') : null;
-    S.to   = toV   ? new Date(toV+'T23:59:59')  : null;
-    gOverlay.selectAll('*').remove(); gLines.selectAll('*').remove(); gSideRoot.selectAll('*').remove();
-    if (S.activeStory!=='All') showLoadingSidebars();
-    rebuild();
-  }
-
-  // ------- Tooltip / Open -------
-  const fmt=d3.format(',');
-  function showTooltip(evt,d){
-    const el=tooltip; el.classList.remove('hidden');
-    const dateStr=d.date.toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const post = (S.postLang==='pt'? d.post_pt : d.post_en) || '(no text)';
-    el.innerHTML=[
-      `<h4>${esc(d.platform)} • ${dateStr}</h4>`,
-      `<p>${esc(post)}</p>`,
-      `<div class="meta">Theme: <b>${esc(d.theme)}</b> • Sub-theme: <b>${esc(d.subtheme)}</b></div>`,
-      `<div class="meta">Status: <b>${esc(d.summarised_status)}</b> • Engagement: <b>${fmt(Math.round(d.engagement))}</b></div>`
-    ].join('');
-    const {pageX:x,pageY:y}=evt; const maxW=420; el.style.left=Math.min(window.innerWidth-maxW-20,x+14)+'px'; el.style.top=(y+14)+'px';
-  }
-  function hideTooltip(){ tooltip.classList.add('hidden'); }
-
-  // OPEN LINKS: Annex EXACTLY AS GIVEN; else URL
-  function openDetails(d){
-    const annex = (d.annex||'').trim();
-    const url   = (d.link||'').trim();
-    const best = annex ? annex : url ? url : null;
-    if(!best) return;
-    window.open(best,'_blank','noopener');
-  }
-
-  // ------- Export -------
-  async function exportPNG(){
-    const svg=document.getElementById('chart'); const data=new XMLSerializer().serializeToString(svg); const blob=new Blob([data],{type:'image/svg+xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const img=new Image();
-    const vb=svg.viewBox.baseVal; const scale=2; const canvas=document.createElement('canvas'); canvas.width=vb.width*scale; canvas.height=vb.height*scale; const ctx=canvas.getContext('2d');
-    img.onload=()=>{ ctx.fillStyle=getComputedStyle(document.body).backgroundColor; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); URL.revokeObjectURL(url); canvas.toBlob((b)=>{ const a=document.createElement('a'); a.download='br-jan8-beeswarms.png'; a.href=URL.createObjectURL(b); a.click(); }); }; img.src=url;
-  }
-})();
-</script>
-</body>
-</html>
+   
