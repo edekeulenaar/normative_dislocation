@@ -52,11 +52,15 @@
   .tool p{margin:0 0 6px;white-space:pre-wrap}
   .tool .meta{color:var(--muted);font-size:12px}
 
-  .anno-chip rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.2}
-  .anno-chip text{fill:#e6eef7; font-size:12px}
   .panel-title{fill:#9fb3c8; font-size:11px}
-  .anno-panel rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.4}
-  .anno-panel text{fill:#e6eef7; font-size:12px}
+
+  /* Chips */
+  .chip-g rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.2}
+  .chip-g text{fill:#e6eef7; font-size:12px}
+
+  /* Expanded chip overlay (full text) */
+  .xchip rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.6}
+  .xchip text{fill:#e6eef7; font-size:12px}
   .hidden{display:none}
   .dimStory{opacity:.25}
 </style>
@@ -129,7 +133,7 @@
 <script>
 (() => {
   // ------- Layout -------
-  const SIDE_W = 320;          // row-local sidebar width
+  const SIDE_W = 320;          // sidebar width per row
   const GAP_W  = 100;          // gap between plot and sidebar
   const PLOT_W = 1400;         // plot width
   const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
@@ -196,8 +200,13 @@
   const gPlot = gRoot.append('g');
   const gAxisTop = gPlot.append('g').attr('class','axis');
   const gRows = gPlot.append('g');
-  const gLines = gRoot.append('g').lower();   // connectors
-  const gSideRoot = gRoot.append('g');        // sidebars
+
+  // Draw connectors *under* the sidebars but *above* the plot so arrows are visible
+  const gLines = gRoot.append('g');
+  // Sidebars container
+  const gSideRoot = gRoot.append('g');
+  // Expanded-chip overlay (front-most so it never overlaps behind chips)
+  const gOverlay = gRoot.append('g');
 
   const innerW = PLOT_W;
   let innerH = 1000;
@@ -212,7 +221,7 @@
   };
 
   // ------- Controls -------
-  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
+  document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars(true);};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
@@ -266,7 +275,6 @@
 
     S.raw=clean;
 
-    // Ordered platforms
     const desired=['Telegram','GETTR','Twitter','YouTube','Facebook','Instagram'];
     const present=Array.from(new Set(clean.map(d=>d.platform)));
     S.platforms = desired.filter(p=>present.includes(p)).concat(present.filter(p=>!desired.includes(p)));
@@ -360,7 +368,7 @@
         });
 
       pending++;
-      sim.on('end',()=>{ if(--pending===0) rebuildSidebars(); });
+      sim.on('end',()=>{ if(--pending===0) rebuildSidebars(true); });
     });
 
     buildLegends();
@@ -434,6 +442,11 @@
       .on('click',(e,d)=>{
         S.activeStory=d;
         d3.selectAll('.story-item').classed('active', x=>x===d);
+        // when switching story, IMMEDIATELY clear overlay and arrows
+        gOverlay.selectAll('*').remove();
+        gSideRoot.selectAll('*').remove();
+        gLines.selectAll('*').remove();
+
         if(d===STORY_PLANNING){
           const max=d3.max(S.raw,x=>x.date);
           const start=new Date('2022-12-15T00:00:00');
@@ -449,6 +462,7 @@
         rebuild();
       });
   }
+
   function applyStoryHighlight(){
     const isPlanning = S.activeStory===STORY_PLANNING;
     const isMilitary = S.activeStory===STORY_MILITARY;
@@ -459,15 +473,17 @@
     });
   }
 
-  // ------- Row‑local sidebars with EXPANDABLE chips -------
-  function rebuildSidebars(){
+  // ------- Sidebars + expandable chips -------
+  function rebuildSidebars(clearOnly){
+    // remove old arrows + sidebars + overlays
     gLines.selectAll('*').remove();
-    gSideRoot.selectAll('*').remove();
-    if (S.activeStory==='All') return; // show only when a Story is selected
+    if (clearOnly!==true) gSideRoot.selectAll('*').remove();
+    gOverlay.selectAll('*').remove();
+    if (S.activeStory==='All') return;
 
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
 
-    // per-platform grouping
+    // group per platform
     const perRow = new Map(S.platforms.map(p=>[p,[]]));
     S.data.forEach(d=>{
       const txt=(textFor(d)||'').trim();
@@ -482,73 +498,82 @@
     S.platforms.forEach((plat,iRow)=>{
       const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
       if(!items.length) return;
-
       const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
       const xLeft = PLOT_W + GAP_W;
       const yTop  = rowBaseY - rowH/2;
+
+      // column container
       const gCol = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      // ---- Panel container (fixed position per row) ----
-      const PANEL_X = 0, PANEL_Y = 18;               // top-left of panel
-      const PANEL_W = SIDE_W; const PANEL_MAXH = rowH - 26; // fits within row
-      const gPanel = gCol.append('g').attr('class','anno-panel').attr('transform',`translate(${PANEL_X},${PANEL_Y})`).style('display','none');
-      gPanel.append('rect').attr('width',PANEL_W).attr('height',PANEL_MAXH).attr('rx',10).attr('ry',10);
-      const tPanel = gPanel.append('text').attr('x',10).attr('y',6).attr('font-size',12);
-      const panelBody = gPanel.append('foreignObject').attr('x',10).attr('y',18).attr('width',PANEL_W-20).attr('height',PANEL_MAXH-26)
-        .append('xhtml:div').style('color','#e6eef7').style('font', '12px Inter,system-ui,Arial').style('line-height','1.35').style('overflow','auto');
-
-      // We'll draw the connector arrow to this panel when opened
-      let currentConnector=null;
-
-      // ---- Chips (date only), packed in lanes so they never overlap ----
-      const chipH = 26, chipGap=8, chipPad=10;
-      // lanes: choose 1–4 depending on count
-      const lanes = Math.min(4, Math.ceil(items.length/6) || 1);
+      // chip grid (1–4 lanes) — NEVER overlap
+      const chipH = 26, chipGap=8, lanes = Math.min(4, Math.ceil(items.length/6) || 1);
       const laneW = Math.floor(SIDE_W/lanes) - (lanes>1?6:0);
       const laneX = i => i*(laneW+6);
-      const laneY = Array(lanes).fill(PANEL_Y + PANEL_MAXH + 8); // chips start **below** the panel
-      // but if too many, put chips first and panel at bottom
-      let chipsAbovePanel = false;
-      if (items.length <= 8) { // put chips above panel for short lists
-        laneY.fill(18);
-        chipsAbovePanel = true;
-        gPanel.attr('transform',`translate(${PANEL_X},${PANEL_Y + chipH + chipGap + ((items.length>lanes)?chipH:0)})`);
-      }
+      const laneY = Array(lanes).fill(18);
+      const chipPad=10;
+
+      // per-row overlay group (front-most)
+      const overlayRow = gOverlay.append('g');
+
+      // track expanded chip state for this row (to support toggle)
+      let expandedForUid = null;
+      let expandedGroup = null;
+      let connector = null;
 
       items.forEach(d=>{
-        // chip group
-        // choose lane with min y
         let k=0, best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i] < best){ best=laneY[i]; k=i; } }
-        const g = gCol.append('g').attr('class','anno-chip').attr('transform',`translate(${laneX(k)},${laneY[k]})`).style('cursor','pointer');
+        const g = gCol.append('g').attr('class','chip-g').style('cursor','pointer')
+                       .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
+
         const label = fmtDate(d.date).toUpperCase();
-        // measure text width approx
         const tmp = g.append('text').text(label).attr('x',0).attr('y',0).attr('opacity',0);
         const w = Math.max(54, tmp.node().getComputedTextLength() + chipPad*2); tmp.remove();
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',8).attr('ry',8);
         g.append('text').attr('x',w/2).attr('y',chipH/2+4).attr('text-anchor','middle').text(label);
         laneY[k]+= chipH + chipGap;
 
-        // click to open panel + arrow
+        // click → toggle expanded chip in overlay (ALWAYS in front)
         g.on('click',()=>{
-          // fill panel
-          const body = (S.annoLang==='pt'? d.context_pt : d.context_en) || '';
-          tPanel.text(`${fmtDate(d.date)} — ${d.platform}`);
-          panelBody.html(escapeHtml(body));
-          gPanel.style('display',null);
+          // if clicking the same -> close
+          if(expandedForUid === d.uid){
+            expandedForUid = null;
+            if(expandedGroup){ expandedGroup.remove(); expandedGroup=null; }
+            if(connector){ connector.remove(); connector=null; }
+            return;
+          }
+          // open new: clear row overlay + connector
+          expandedForUid = d.uid;
+          if(expandedGroup){ expandedGroup.remove(); }
+          if(connector){ connector.remove(); }
+          expandedGroup = overlayRow.append('g').attr('class','xchip'); // front-most
 
-          // remove old connector for this row
-          if(currentConnector){ currentConnector.remove(); currentConnector=null; }
+          // place expanded chip near chips column (same row), auto-sized by text
+          const text = (textFor(d)||'').trim();
+          const x = xLeft; // align with column
+          const y = yTop + 18; // top of chip grid
+          const maxW = SIDE_W;
+          // build text to measure lines (SVG tspans)
+          const tmpg = expandedGroup.append('text').attr('x',10).attr('y',16).text(`${label} — ${d.platform}`);
+          const headingH = 18;
+          const body = expandedGroup.append('text').attr('x',10).attr('y',headingH+10);
+          // wrap lines
+          wrapSvgText(body, maxW-20, 14, 200, text);
+          const lines = body.selectAll('tspan').nodes().length || 1;
+          const bodyH = lines*14 + 12;
+          const boxH = headingH + bodyH + 12;
 
-          // draw new connector from dot to panel middle
+          expandedGroup.attr('transform',`translate(${x},${y})`);
+          expandedGroup.insert('rect','text')
+            .attr('width',maxW).attr('height',boxH).attr('rx',10).attr('ry',10);
+
+          // connector from dot to left edge of expanded chip
           const pos = posByUid.get(d.uid);
           if(pos){
             const x1 = pos.x, y1 = pos.y;
             const x2 = PLOT_W + GAP_W - 10;
-            // panel vertical mid
-            const panelBox = {x: xLeft + PANEL_X, y: yTop + (+gPanel.attr('transform').match(/,\s*([-\d.]+)\)/)[1])};
-            const y2 = yTop + (chipsAbovePanel ? (PANEL_Y + chipH + chipGap + 6 + (PANEL_MAXH/2)) : (PANEL_Y + PANEL_MAXH/2));
-            currentConnector = gLines.append('path')
+            const y2 = y + boxH/2;
+            connector = gLines.append('path')
               .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
               .attr('stroke','#6fa7ff').attr('stroke-width',1.6).attr('fill','none')
               .attr('marker-end','url(#arrow)');
@@ -558,7 +583,25 @@
     });
   }
 
-  function escapeHtml(s){return (s||'').replace(/[&<>"]/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+  // wrap helper for expanded-chip body
+  function wrapSvgText(sel, width, lineHeight, maxLines, rawText){
+    sel.each(function(){
+      const text = d3.select(this);
+      const words = (rawText||'').split(/\s+/).filter(Boolean);
+      text.text('');
+      let line=[], lineNumber=0;
+      let tspan = text.append('tspan').attr('x', 10).attr('dy', lineHeight).text('');
+      words.forEach(w=>{
+        line.push(w); tspan.text(line.join(' '));
+        if (tspan.node().getComputedTextLength() > width){
+          line.pop(); tspan.text(line.join(' '));
+          line=[w]; tspan = text.append('tspan').attr('x',10).attr('dy',lineHeight).text(w);
+          lineNumber++;
+          if(lineNumber>maxLines){ tspan.text('…'); return; }
+        }
+      });
+    });
+  }
 
   // ------- Filter / Range -------
   function filter(){
@@ -580,6 +623,8 @@
     const toV=document.getElementById('to-date').value;
     S.from = fromV ? new Date(fromV+'T00:00:00') : null;
     S.to   = toV   ? new Date(toV+'T23:59:59')  : null;
+    // clear overlays/arrows when range changes
+    gOverlay.selectAll('*').remove(); gLines.selectAll('*').remove(); gSideRoot.selectAll('*').remove();
     rebuild();
   }
 
@@ -601,14 +646,16 @@
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
-  // open Annex EXACTLY as provided; fallback to URL
+  // ----- OPEN LINKS: Annex EXACTLY AS GIVEN; else URL -----
   function openDetails(d){
-    const best = (d.annex && d.annex.trim()) ? d.annex.trim() : (d.link && d.link.trim()) ? d.link.trim() : null;
+    const annex = (d.annex||'').trim();
+    const url   = (d.link||'').trim();
+    const best = annex ? annex : url ? url : null;
     if(!best){
-      window.open('https://drive.google.com/drive/folders/1KIBwCiGmlPwVcIKGcZVMGfqLcKB-qKQM?usp=drive_link','_blank','noopener');
+      // nothing: do nothing rather than opening generic folder
       return;
     }
-    window.open(best,'_blank','noopener');
+    window.open(best,'_blank','noopener'); // exact string; no rewriting
   }
 
   // ------- Export -------
