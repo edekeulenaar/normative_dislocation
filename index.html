@@ -56,20 +56,22 @@
 
   /* Chips */
   .chip-g rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.2}
-  .chip-g text{fill:#e6eef7; font-size:12px}
+  .chip-g text{fill:#e6eef7; font-size:13px}
 
   /* Expanded chip overlay (full text) */
   .xchip rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.6}
-  .xchip text{fill:#e6eef7; font-size:12px}
+  .xchip text{fill:#e6eef7; font-size:14px}
+  .xbtn{fill:#cfe2ff; font-size:16px; cursor:pointer}
   .hidden{display:none}
   .dimStory{opacity:.25}
+  .loading{fill:#9fb3c8;font-size:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Top posts leading up to Jan 8, 2023 — all platforms</h1>
-    <p>Each dot is a post. <b>Dot area ∝ Overall engagement</b> (per‑platform). <b>Fill = Theme</b>. <b>Outer ring = Status</b>. Click any dot to open its source; if the post has a note, it appears as <b>Context</b>.</p>
+    <p>Each dot is a post. <b>Dot area ∝ Overall engagement</b> (per‑platform). <b>Fill = Theme</b>. <b>Outer ring = Status</b>. Click any dot to open its source.</p>
   </header>
 
   <div class="controls">
@@ -133,19 +135,17 @@
 <script>
 (() => {
   // ------- Layout -------
-  const SIDE_W = 320;          // sidebar width per row
-  const GAP_W  = 100;          // gap between plot and sidebar
-  const PLOT_W = 1400;         // plot width
+  const SIDE_W = 320;
+  const GAP_W  = 100;
+  const PLOT_W = 1400;
   const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
   const H0 = 1400;
   const M={t:170,r:28,b:90,l:120};
   const rowH = 160, rowGap = 120;
 
-  // ------- Data source -------
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
   const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
 
-  // ------- Columns -------
   const COLS = {
     date:['Date'],
     anno_en:['Annotation','Annotations','Annotations (English)'],
@@ -163,7 +163,6 @@
     story:['Story']
   };
 
-  // ------- Colors / stories -------
   const STATUS_COLORS = new Map([
     ['Removed by the user',    '#C96918'],
     ['Removed by platform',    '#E1524A'],
@@ -188,11 +187,10 @@
   ]);
   const militarySubthemes = new Set(['Military support','Military barracks']);
 
-  // ------- SVG -------
+  // ------- SVG & layers -------
   const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${H0}`);
   const defs = $svg.append('defs');
-  defs.append('marker') // arrowhead
-    .attr('id','arrow').attr('viewBox','0 0 10 10')
+  defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
     .attr('refX',10).attr('refY',5).attr('markerWidth',7).attr('markerHeight',7).attr('orient','auto')
     .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#6fa7ff');
 
@@ -201,15 +199,10 @@
   const gAxisTop = gPlot.append('g').attr('class','axis');
   const gRows = gPlot.append('g');
 
-  // Draw connectors *under* the sidebars but *above* the plot so arrows are visible
-  const gLines = gRoot.append('g');
-  // Sidebars container
-  const gSideRoot = gRoot.append('g');
-  // Expanded-chip overlay (front-most so it never overlaps behind chips)
-  const gOverlay = gRoot.append('g');
+  const gLines = gRoot.append('g');     // connectors
+  const gSideRoot = gRoot.append('g');  // chips + placeholders
+  const gOverlay = gRoot.append('g');   // expanded cards
 
-  const innerW = PLOT_W;
-  let innerH = 1000;
   const tooltip = document.getElementById('tooltip');
 
   // ------- State -------
@@ -225,7 +218,7 @@
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('btn-export').onclick=exportPNG;
   document.getElementById('apply-range').onclick=applyRange;
-  let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter();},160)});
+  let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter(true);},160)});
 
   // ------- Utils -------
   const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -234,6 +227,18 @@
   function num(r,keys){const v=col(r,keys);if(v==='')return NaN;const nv=+String(v).replace(/\u00A0/g,' ').replace(/[^\d.\-]/g,'');return isFinite(nv)?nv:NaN;}
   function parseDate(s){if(!s)return null;let d=new Date(s);if(!isNaN(+d))return d;const fmts=['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M','%d/%m/%Y'];for(const f of fmts){const p=d3.timeParse(f);d=p(s);if(d)return d;}return null;}
   function statusColor(st){ if (!st) return '#9aa8bb'; if (STATUS_COLORS.has(st)) return STATUS_COLORS.get(st); return '#9aa8bb'; }
+
+  // Decide if a datum is currently visible under filters/search
+  function datumVisible(d){
+    if(S.themeFilter.size && !S.themeFilter.has(d.theme)) return false;
+    if(S.statusFilter.size && !S.statusFilter.has(d.summarised_status)) return false;
+    if(S.subthemeFilter.size && !S.subthemeFilter.has(d.subtheme)) return false;
+    if(S.search){
+      const hay=[d.post_en,d.post_pt,(d.context_en||''),(d.context_pt||''),d.theme,d.subtheme,d.summarised_status,d.link,d.annex].join(' ').toLowerCase();
+      if(!hay.includes(S.search)) return false;
+    }
+    return true;
+  }
 
   // ------- Load CSV -------
   fetch(CSV_URL,{cache:"no-store"}).then(r=>r.text()).then(text=>{
@@ -300,7 +305,7 @@
     S.data=S.raw.filter(d=>(!S.from||d.date>=S.from)&&(!S.to||d.date<=S.to));
 
     const tMin=d3.min(S.data,d=>d.date), tMax=d3.max(S.data,d=>d.date);
-    innerH=S.platforms.length*(rowH+rowGap);
+    const innerH=S.platforms.length*(rowH+rowGap);
     d3.select('#chart').attr('viewBox',`0 0 ${M.l+PLOT_W+GAP_W+SIDE_W+M.r} ${M.t+innerH+M.b}`);
 
     xScale=d3.scaleTime().domain([tMin,tMax]).range([0,PLOT_W]);
@@ -326,8 +331,10 @@
 
     posByUid.clear();
 
-    let pending = 0;
+    // Show placeholders if a story is active
+    if (S.activeStory!=='All') showLoadingSidebars();
 
+    let pending = 0;
     rowAll.each(function(plat,iRow){
       const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
       const nodes=S.data.filter(d=>d.platform===plat).map(d=>({
@@ -375,16 +382,27 @@
     buildSubthemeLegend();
     buildSizeChips();
     applyStoryHighlight();
-    filter();
+    filter(false); // don’t rebuild sidebars twice here
   }
 
-  // ------- Legends / filters -------
+  function showLoadingSidebars(){
+    gSideRoot.selectAll('*').remove();
+    const xLeft = PLOT_W + GAP_W;
+    S.platforms.forEach((plat,iRow)=>{
+      const yTop = iRow*(rowH+rowGap);
+      const g = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
+      g.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
+      g.append('text').attr('class','loading').attr('x',0).attr('y',20).text('Loading annotations…');
+    });
+  }
+
+  // ------- Legends & size chips -------
   function buildLegends(){
     const themes=[...S.themes].sort();
     d3.select('#legend-themes').selectAll('.legend-item').data(themes,d=>d).join(enter=>{
       const div=enter.append('div').attr('class','legend-item');
       div.html(d=>`<span class="swatch" style="background:${themeColor(d)}"></span> <span>${esc(d||'—')}</span>`);
-      div.on('click',(e,d)=>{ if(S.themeFilter.has(d)) S.themeFilter.delete(d); else S.themeFilter.add(d); updateLegendStates(); filter(); });
+      div.on('click',(e,d)=>{ if(S.themeFilter.has(d)) S.themeFilter.delete(d); else S.themeFilter.add(d); updateLegendStates(); filter(true); });
     });
 
     const sts=[...S.statuses].sort();
@@ -395,7 +413,7 @@
         return `<span class="stroke" style="${style}"></span> <span>${esc(d||'—')}</span>`;
       };
       div.html(cHTML);
-      div.on('click',(e,d)=>{ if(S.statusFilter.has(d)) S.statusFilter.delete(d); else S.statusFilter.add(d); updateLegendStates(); filter(); });
+      div.on('click',(e,d)=>{ if(S.statusFilter.has(d)) S.statusFilter.delete(d); else S.statusFilter.add(d); updateLegendStates(); filter(true); });
     });
 
     updateLegendStates();
@@ -405,7 +423,7 @@
     d3.select('#legend-subthemes').selectAll('.legend-item').data(st,d=>d).join(enter=>{
       const div=enter.append('div').attr('class','legend-item');
       div.html(d=>`<span class="swatch" style="background:#556b8e"></span> <span>${esc(d||'—')}</span>`);
-      div.on('click',(e,d)=>{ if(S.subthemeFilter.has(d)) S.subthemeFilter.delete(d); else S.subthemeFilter.add(d); updateLegendStates(); filter(); });
+      div.on('click',(e,d)=>{ if(S.subthemeFilter.has(d)) S.subthemeFilter.delete(d); else S.subthemeFilter.add(d); updateLegendStates(); filter(true); });
     });
   }
   function updateLegendStates(){
@@ -442,10 +460,11 @@
       .on('click',(e,d)=>{
         S.activeStory=d;
         d3.selectAll('.story-item').classed('active', x=>x===d);
-        // when switching story, IMMEDIATELY clear overlay and arrows
+        // clear and show placeholders for new story
         gOverlay.selectAll('*').remove();
         gSideRoot.selectAll('*').remove();
         gLines.selectAll('*').remove();
+        if (d!=='All') showLoadingSidebars();
 
         if(d===STORY_PLANNING){
           const max=d3.max(S.raw,x=>x.date);
@@ -462,7 +481,6 @@
         rebuild();
       });
   }
-
   function applyStoryHighlight(){
     const isPlanning = S.activeStory===STORY_PLANNING;
     const isMilitary = S.activeStory===STORY_MILITARY;
@@ -473,23 +491,23 @@
     });
   }
 
-  // ------- Sidebars + expandable chips -------
+  // ------- Sidebars + expandable chips (respect filters) -------
   function rebuildSidebars(clearOnly){
-    // remove old arrows + sidebars + overlays
     gLines.selectAll('*').remove();
-    if (clearOnly!==true) gSideRoot.selectAll('*').remove();
     gOverlay.selectAll('*').remove();
+    if (clearOnly!==true) gSideRoot.selectAll('*').remove();
     if (S.activeStory==='All') return;
 
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
 
-    // group per platform
+    // group visible items per platform
     const perRow = new Map(S.platforms.map(p=>[p,[]]));
     S.data.forEach(d=>{
       const txt=(textFor(d)||'').trim();
       if(!txt) return;
       if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
+      if(!datumVisible(d)) return; // <— hide annotations for filtered‑out posts
       perRow.get(d.platform)?.push(d);
     });
 
@@ -498,25 +516,18 @@
     S.platforms.forEach((plat,iRow)=>{
       const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
       if(!items.length) return;
-      const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
       const xLeft = PLOT_W + GAP_W;
-      const yTop  = rowBaseY - rowH/2;
-
-      // column container
+      const yTop  = iRow*(rowH+rowGap);
       const gCol = gSideRoot.append('g').attr('transform',`translate(${xLeft},${yTop})`);
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      // chip grid (1–4 lanes) — NEVER overlap
-      const chipH = 26, chipGap=8, lanes = Math.min(4, Math.ceil(items.length/6) || 1);
+      const chipH = 28, chipGap=8, lanes = Math.min(4, Math.ceil(items.length/6) || 1);
       const laneW = Math.floor(SIDE_W/lanes) - (lanes>1?6:0);
       const laneX = i => i*(laneW+6);
       const laneY = Array(lanes).fill(18);
       const chipPad=10;
 
-      // per-row overlay group (front-most)
       const overlayRow = gOverlay.append('g');
-
-      // track expanded chip state for this row (to support toggle)
       let expandedForUid = null;
       let expandedGroup = null;
       let connector = null;
@@ -528,46 +539,49 @@
 
         const label = fmtDate(d.date).toUpperCase();
         const tmp = g.append('text').text(label).attr('x',0).attr('y',0).attr('opacity',0);
-        const w = Math.max(54, tmp.node().getComputedTextLength() + chipPad*2); tmp.remove();
+        const w = Math.max(60, tmp.node().getComputedTextLength() + chipPad*2); tmp.remove();
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',8).attr('ry',8);
         g.append('text').attr('x',w/2).attr('y',chipH/2+4).attr('text-anchor','middle').text(label);
         laneY[k]+= chipH + chipGap;
 
-        // click → toggle expanded chip in overlay (ALWAYS in front)
         g.on('click',()=>{
-          // if clicking the same -> close
-          if(expandedForUid === d.uid){
+          if(expandedForUid === d.uid){ // toggle close
             expandedForUid = null;
             if(expandedGroup){ expandedGroup.remove(); expandedGroup=null; }
             if(connector){ connector.remove(); connector=null; }
             return;
           }
-          // open new: clear row overlay + connector
           expandedForUid = d.uid;
           if(expandedGroup){ expandedGroup.remove(); }
           if(connector){ connector.remove(); }
-          expandedGroup = overlayRow.append('g').attr('class','xchip'); // front-most
+          expandedGroup = overlayRow.append('g').attr('class','xchip'); // always on top
 
-          // place expanded chip near chips column (same row), auto-sized by text
-          const text = (textFor(d)||'').trim();
-          const x = xLeft; // align with column
-          const y = yTop + 18; // top of chip grid
+          const bodyText = (textFor(d)||'').trim();
+          const x = xLeft;
+          const y = yTop + 18;
           const maxW = SIDE_W;
-          // build text to measure lines (SVG tspans)
-          const tmpg = expandedGroup.append('text').attr('x',10).attr('y',16).text(`${label} — ${d.platform}`);
-          const headingH = 18;
-          const body = expandedGroup.append('text').attr('x',10).attr('y',headingH+10);
-          // wrap lines
-          wrapSvgText(body, maxW-20, 14, 200, text);
-          const lines = body.selectAll('tspan').nodes().length || 1;
-          const bodyH = lines*14 + 12;
-          const boxH = headingH + bodyH + 12;
 
-          expandedGroup.attr('transform',`translate(${x},${y})`);
+          // header
+          const head = expandedGroup.append('text').attr('x',12).attr('y',20).text(`${label} — ${d.platform}`);
+          // Close (×)
+          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-14).attr('y',18)
+            .text('×').on('click',()=>{
+              expandedForUid=null;
+              if(expandedGroup){ expandedGroup.remove(); expandedGroup=null; }
+              if(connector){ connector.remove(); connector=null; }
+            });
+
+          const body = expandedGroup.append('text').attr('x',12).attr('y',34);
+          wrapSvgText(body, maxW-22, 16, 100, bodyText);
+          const lines = body.selectAll('tspan').nodes().length || 1;
+          const boxH = 20 + (lines*16) + 16;
+
           expandedGroup.insert('rect','text')
             .attr('width',maxW).attr('height',boxH).attr('rx',10).attr('ry',10);
 
-          // connector from dot to left edge of expanded chip
+          expandedGroup.attr('transform',`translate(${x},${y})`);
+
+          // connector
           const pos = posByUid.get(d.uid);
           if(pos){
             const x1 = pos.x, y1 = pos.y;
@@ -583,39 +597,30 @@
     });
   }
 
-  // wrap helper for expanded-chip body
   function wrapSvgText(sel, width, lineHeight, maxLines, rawText){
     sel.each(function(){
-      const text = d3.select(this);
+      const text = d3.select(this).text('');
       const words = (rawText||'').split(/\s+/).filter(Boolean);
-      text.text('');
       let line=[], lineNumber=0;
-      let tspan = text.append('tspan').attr('x', 10).attr('dy', lineHeight).text('');
+      let tspan = text.append('tspan').attr('x', 12).attr('dy', lineHeight).text('');
       words.forEach(w=>{
         line.push(w); tspan.text(line.join(' '));
         if (tspan.node().getComputedTextLength() > width){
           line.pop(); tspan.text(line.join(' '));
-          line=[w]; tspan = text.append('tspan').attr('x',10).attr('dy',lineHeight).text(w);
-          lineNumber++;
-          if(lineNumber>maxLines){ tspan.text('…'); return; }
+          line=[w]; tspan = text.append('tspan').attr('x',12).attr('dy',lineHeight).text(w);
+          lineNumber++; if(lineNumber>maxLines){ tspan.text('…'); return; }
         }
       });
     });
   }
 
   // ------- Filter / Range -------
-  function filter(){
-    const q=S.search; const hasTheme=S.themeFilter.size>0; const hasStatus=S.statusFilter.size>0; const hasSub=S.subthemeFilter.size>0;
-    gRows.selectAll('g.dot').classed('hidden', d=>{
-      if(hasTheme && !S.themeFilter.has(d.theme)) return true;
-      if(hasStatus && !S.statusFilter.has(d.summarised_status)) return true;
-      if(hasSub && !S.subthemeFilter.has(d.subtheme)) return true;
-      if(q){
-        const hay=[d.post_en,d.post_pt,(d.context_en||''),(d.context_pt||''),d.theme,d.subtheme,d.summarised_status,d.link,d.annex].join(' ').toLowerCase();
-        if(!hay.includes(q)) return true;
-      }
-      return false;
-    });
+  function filter(rebuildSidebarsToo){
+    gRows.selectAll('g.dot').classed('hidden', d=>!datumVisible(d));
+    if (S.activeStory!=='All' && rebuildSidebarsToo) {
+      // rebuild sidebars so only annotations for visible posts remain
+      rebuildSidebars(true);
+    }
   }
 
   function applyRange(){
@@ -623,8 +628,8 @@
     const toV=document.getElementById('to-date').value;
     S.from = fromV ? new Date(fromV+'T00:00:00') : null;
     S.to   = toV   ? new Date(toV+'T23:59:59')  : null;
-    // clear overlays/arrows when range changes
     gOverlay.selectAll('*').remove(); gLines.selectAll('*').remove(); gSideRoot.selectAll('*').remove();
+    if (S.activeStory!=='All') showLoadingSidebars();
     rebuild();
   }
 
@@ -634,11 +639,9 @@
     const el=tooltip; el.classList.remove('hidden');
     const dateStr=d.date.toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
     const post = (S.postLang==='pt'? d.post_pt : d.post_en) || '(no text)';
-    const context = (S.annoLang==='pt' ? d.context_pt : d.context_en) || '';
     el.innerHTML=[
       `<h4>${esc(d.platform)} • ${dateStr}</h4>`,
       `<p>${esc(post)}</p>`,
-      context.trim()? `<div class="meta"><b>Context:</b> ${esc(context)}</div>` : '',
       `<div class="meta">Theme: <b>${esc(d.theme)}</b> • Sub-theme: <b>${esc(d.subtheme)}</b></div>`,
       `<div class="meta">Status: <b>${esc(d.summarised_status)}</b> • Engagement: <b>${fmt(Math.round(d.engagement))}</b></div>`
     ].join('');
@@ -646,16 +649,13 @@
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
-  // ----- OPEN LINKS: Annex EXACTLY AS GIVEN; else URL -----
+  // OPEN LINKS: Annex EXACTLY AS GIVEN; else URL
   function openDetails(d){
     const annex = (d.annex||'').trim();
     const url   = (d.link||'').trim();
     const best = annex ? annex : url ? url : null;
-    if(!best){
-      // nothing: do nothing rather than opening generic folder
-      return;
-    }
-    window.open(best,'_blank','noopener'); // exact string; no rewriting
+    if(!best) return;
+    window.open(best,'_blank','noopener');
   }
 
   // ------- Export -------
