@@ -89,7 +89,7 @@
   .tool{
     position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
     border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
-    font-size:18px;line-height:1.5;max-width:640px;box-shadow:0 10px 30px #0006
+    font-size:15px;line-height:1.5;max-width:640px;box-shadow:0 10px 30px #0006
   }
   .hidden{display:none}
   .dimStory{opacity:.25}
@@ -346,11 +346,11 @@
     const fmtTop=d3.timeFormat('%b %d');
     gAxisTop.selectAll('*').remove();
     gAxisTop.attr('transform','translate(0,-64)').call(d3.axisTop(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
-    gAxisTop.selectAll('text').attr('font-size',20);
+    gAxisTop.selectAll('text').attr('font-size',25);
 
     gAxisBottom.selectAll('*').remove();
     gAxisBottom.attr('transform',`translate(0,${innerH+44})`).call(d3.axisBottom(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
-    gAxisBottom.selectAll('text').attr('font-size',20);
+    gAxisBottom.selectAll('text').attr('font-size',25);
 
     gGridV.selectAll('*').remove();
     gGridV.attr('transform','translate(0,-44)');
