@@ -485,136 +485,114 @@
 
   /* ---------- Sidebars (no overlap; big OPENED cards; chip re‑click closes) ---------- */
   function rebuildSidebars(){
-    gLines.selectAll('*').remove(); gOverlay.selectAll('*').remove(); gSide.selectAll('*').remove();
-    if (S.activeStory==='All') return;
-
-    const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
-    const perRow = new Map(S.platforms.map(p=>[p,[]]));
-
-    S.data.forEach(d=>{
-      const txt=(textFor(d)||'').trim(); if(!txt) return;
-      if(S.activeStory==='STORY_PLANNING' && d.story!==STORY_PLANNING) return;
-      if(S.activeStory==='STORY_MILITARY' && d.story!==STORY_MILITARY) return;
-      if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
-      if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
-      if(S.activeStory===STORY_FRAUD && d.theme !== 'Allegations of election fraud') return;
-      if(!datumVisible(d)) return;
+    gLines.selectAll('*').remove();
+    gOverlay.selectAll('*').remove();
+    gSide.selectAll('*').remove();
+    if (S.activeStory === 'All') return;
+  
+    const textFor = d => S.annoLang === 'pt' ? d.context_pt : d.context_en;
+  
+    // ❶ Collect visible annos per platform
+    const perRow = new Map(S.platforms.map(p => [p, []]));
+    S.data.forEach(d => {
+      const t = (textFor(d) || '').trim();
+      if (!t) return;
+      if (S.activeStory === 'Planning the riots'   && !['Calls for a military intervention','Calls to join the January 8 riots','Prophecising a coup','References to, or calls for, a civil war','Strikes in support of a military coup'].includes(d.theme)) return;
+      if (S.activeStory === 'Military involvement' && !['Military support','Military barracks'].includes(d.subtheme)) return;
+      if (S.activeStory === 'Allegations of electoral fraud' && d.theme !== 'Allegations of election fraud') return;
+      if (!datumVisible(d)) return;
       perRow.get(d.platform)?.push(d);
     });
-
-    const fmtDate=d3.timeFormat('%b %d');
-
-    S.platforms.forEach((plat,iRow)=>{
-      const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
-      if(!items.length) return;
-
-      const xLeft=PLOT_W+GAP_W, yTop=iRow*(rowH+rowGap);
-      const gCol=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
+  
+    const fmtDate = d3.timeFormat('%b %d');
+  
+    // ❷ One open card PER PLATFORM (state lives outside chip handler)
+    const openCardByPlatform = new Map(); // plat -> {uid, close()}
+  
+    S.platforms.forEach((plat, iRow) => {
+      const items = (perRow.get(plat) || []).sort((a,b)=>a.date-b.date);
+      if (!items.length) return;
+  
+      const xLeft = PLOT_W + GAP_W;
+      const yTop  = iRow * (rowH + rowGap);
+  
+      const gCol = gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-30).text(`${plat.toUpperCase()} — CONTEXT`);
-
-      const MIN_CHIP_W=150, MAX_LANES=Math.max(1, Math.floor(SIDE_W/MIN_CHIP_W));
-      const lanes=Math.max(1, Math.min(MAX_LANES, items.length));
-      const laneW=Math.floor(SIDE_W/lanes)-(lanes>1?10:0);
-      const chipH=78, chipGap=28;
-      const laneX=i=>i*(laneW+(lanes>1?10:0));
-      const laneY=Array(lanes).fill(14);
-
-      const overlayRow=gOverlay.append('g');
-      let expandedFor=null, expandedGroup=null, connector=null;
-
-      items.forEach(d=>{
-        let k=0,best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i]<best){best=laneY[i];k=i;} }
-        const g=gCol.append('g').attr('class','chip-g').style('cursor','pointer')
-                    .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
-        const label=fmtDate(d.date).toUpperCase();
-        const tmp=g.append('text').text(label).attr('opacity',0);
-        const desired=Math.max(MIN_CHIP_W,tmp.node().getComputedTextLength()+36); tmp.remove();
-        const w=Math.min(laneW-4, desired);
-
+  
+      // Chip layout (no overlaps)
+      const MIN_CHIP_W = 150, chipH = 78, chipGap = 28;
+      const lanes = Math.max(1, Math.min(Math.floor(SIDE_W / MIN_CHIP_W), items.length));
+      const laneW = Math.floor(SIDE_W / lanes) - (lanes>1 ? 10 : 0);
+      const laneX = i => i * (laneW + (lanes>1 ? 10 : 0));
+      const laneY = Array(lanes).fill(14);
+  
+      const overlayRow = gOverlay.append('g'); // cards for THIS platform
+  
+      items.forEach(d => {
+        // place into the least-tall lane
+        let k = 0, best = laneY[0];
+        for (let i=1;i<lanes;i++){ if (laneY[i] < best){ best = laneY[i]; k = i; } }
+  
+        const g = gCol.append('g')
+          .attr('class','chip-g')
+          .style('cursor','pointer')
+          .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
+  
+        const label = fmtDate(d.date).toUpperCase();
+        const tmp   = g.append('text').text(label).attr('opacity',0);
+        const w     = Math.min(laneW-4, Math.max(MIN_CHIP_W, tmp.node().getComputedTextLength()+36));
+        tmp.remove();
+  
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',14).attr('ry',14);
         g.append('text').attr('x',w/2).attr('y',chipH/2+11).attr('text-anchor','middle').text(label);
-        laneY[k]+=chipH+chipGap;
-
-        g.on('click',(e)=>{ e.stopPropagation(); toggleExpand(d); });
-
-        function toggleExpand(datum){
-          // Close if this same chip is already open
-          if (expandedFor === datum.uid) {
-            expandedFor = null;
-            if (expandedGroup) { expandedGroup.remove(); expandedGroup = null; }
-            if (connector)     { connector.remove();     connector     = null; }
+        laneY[k] += chipH + chipGap;
+  
+        // ❸ Toggle handler with hard close of existing card for this platform
+        g.on('click', (e) => {
+          e.stopPropagation();
+          const open = openCardByPlatform.get(plat);
+          if (open && open.uid === d.uid) {
+            open.close(); openCardByPlatform.delete(plat); // re-click closes
             return;
           }
-        
-          expandedFor = datum.uid;
-          if (expandedGroup) { expandedGroup.remove(); }
-          if (connector)     { connector.remove(); }
-        
-          const bodyText = (textFor(datum) || '').trim();
-        
-          // --- BIGGER SIZING KNOBS ---
-          const MAX_W      = SIDE_W;  // full sidebar width
-          const PAD_X      = 36;      // left/right padding
-          const TITLE_Y    = 60;      // header baseline
-          const BODY_Y     = 110;     // body first line baseline
-          const LINE_H     = 42;      // body line height (bigger text spacing)
-          const PAD_BOTTOM = 56;      // extra space at bottom
-          // ---------------------------
-        
-          const x = xLeft, y = yTop + 20;
-        
-          expandedGroup = overlayRow.append('g')
-            .attr('class','xchip')
-            .attr('transform', `translate(${x},${y})`)
-            .raise(); // keep opened card on top
-        
-          const rect = expandedGroup.append('rect')
-            .attr('width', MAX_W)
-            .attr('height', 10)       // temp; we compute actual height below
-            .attr('rx', 18).attr('ry', 18);
-        
-          // Title
-          const label = d3.timeFormat('%b %d')(datum.date).toUpperCase();
-          expandedGroup.append('text')
-            .attr('x', PAD_X)
-            .attr('y', TITLE_Y)
-            .text(`${label} — ${datum.platform}`);
-        
-          // Close button (also toggles same chip -> closes)
-          expandedGroup.append('text')
-            .attr('class','xbtn')
-            .attr('x', MAX_W - PAD_X)
-            .attr('y', TITLE_Y - 2)
-            .text('×')
-            .on('click', (e) => { e.stopPropagation(); toggleExpand(datum); });
-        
-          // Body (wrapped, bigger line-height)
-          const body = expandedGroup.append('text')
-            .attr('x', PAD_X)
-            .attr('y', BODY_Y);
-        
-          wrapSvgText(body, MAX_W - PAD_X*2, LINE_H, 999, bodyText); // width & line height ↑
-        
+          if (open) { open.close(); openCardByPlatform.delete(plat); } // close other open card
+  
+          // build BIG card
+          const MAX_W = SIDE_W, PAD_X = 36, TITLE_Y = 60, BODY_Y = 110, LINE_H = 42, PAD_BOTTOM = 56;
+          const card  = overlayRow.append('g').attr('class','xchip').attr('transform',`translate(${xLeft},${yTop+20})`).raise();
+          const rect  = card.append('rect').attr('width',MAX_W).attr('height',10).attr('rx',18).attr('ry',18);
+  
+          card.append('text').attr('x',PAD_X).attr('y',TITLE_Y).text(`${label} — ${plat}`);
+          card.append('text').attr('class','xbtn').attr('x',MAX_W-PAD_X).attr('y',TITLE_Y-2).text('×')
+            .on('click',(ev)=>{ ev.stopPropagation(); const c=openCardByPlatform.get(plat); if(c){c.close(); openCardByPlatform.delete(plat);} });
+  
+          const body = card.append('text').attr('x',PAD_X).attr('y',BODY_Y);
+          wrapSvgText(body, MAX_W-PAD_X*2, LINE_H, 999, (textFor(d)||'').trim());
           const lines = body.selectAll('tspan').nodes().length || 1;
-          const boxH  = BODY_Y + (lines * LINE_H) + PAD_BOTTOM;       // bigger overall height
+          const boxH  = BODY_Y + lines*LINE_H + PAD_BOTTOM;
           rect.attr('height', boxH);
-        
-          // Connector arrow from dot -> card
-          const pos = posByUid.get(datum.uid);
-          if (pos) {
-            const x1 = pos.x, y1 = pos.y;
-            const x2 = PLOT_W + GAP_W - 18;
-            const y2 = y + boxH / 2;
+  
+          // clicking anywhere on the card also closes (nice UX, and works even if it overlaps)
+          rect.on('click',(ev)=>{ ev.stopPropagation(); const c=openCardByPlatform.get(plat); if(c){c.close(); openCardByPlatform.delete(plat);} });
+  
+          // connector
+          const pos = posByUid.get(d.uid);
+          let connector = null;
+          if (pos){
+            const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-18, y2=yTop+20+boxH/2;
             connector = gLines.append('path')
-              .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-              .attr('stroke', '#6fa7ff')
-              .attr('stroke-width', 2.8)
-              .attr('fill', 'none')
-              .attr('marker-end','url(#arrow)');
+              .attr('d',`M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
+              .attr('stroke','#6fa7ff').attr('stroke-width',2.8).attr('fill','none').attr('marker-end','url(#arrow)');
           }
-        }  
+  
+          // register closer
+          openCardByPlatform.set(plat, {
+            uid: d.uid,
+            close: () => { card.remove(); if (connector) connector.remove(); }
+          });
+        });
       });
-    });
+    }
   }
 
   function wrapSvgText(sel, width, lineH, maxLines, rawText){
