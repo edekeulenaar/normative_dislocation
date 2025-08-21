@@ -34,7 +34,7 @@
   header h1{
     margin:.2rem 0 2.2rem;
     font-size:30px; line-height:1.16;
-    font-family:"SchulbuchNord",serif; /* Title now SchulbuchNord */
+    font-family:"SchulbuchNord",serif;
     letter-spacing:.2px;
   }
 
@@ -64,19 +64,17 @@
   svg{width:100%;height:auto;display:block}
 
   /* Axes */
-  .axis text{fill:var(--fg);font-size:20px;font-family:"SchulbuchSued"}
+  .axis text{fill:var(--fg);font-size:25px;font-family:"SchulbuchSued"}
   .axis path,.axis line{stroke:#33465e}
   .grid-v line{stroke:#1c2a3c;stroke-width:1;opacity:.6}
 
   /* Row/platform labels (left side) */
-  .platform-name{
-    fill:#e6eef7; font-family:"SchulbuchSued"; font-size:20px; letter-spacing:.5px;
-  }
+  .platform-name{ fill:#e6eef7; font-family:"SchulbuchSued"; font-size:20px; letter-spacing:.5px; }
 
-  /* Dots */
+  /* Dots / rings */
   .ring-sep{stroke:var(--sep)}
 
-  /* Context chips + expanded cards — bigger text & padding for 13" screens */
+  /* Context chips + expanded cards (bigger) */
   .chip-g rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.6}
   .chip-g text{fill:#e6eef7;font-size:20px}
 
@@ -85,7 +83,7 @@
   .xbtn{fill:#cfe2ff;font-size:24px;cursor:pointer}
   .panel-title{fill:#9fb3c8;font-size:20px;font-family:"SchulbuchSued"}
 
-  /* Tooltip (bigger) */
+  /* Tooltip (post hover) */
   .tool{
     position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
     border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
@@ -151,12 +149,12 @@
 
 <script>
 (() => {
-  /* ---------- Sizing tuned for 13" ---------- */
-  const SIDE_W = 640;     // wider side column
-  const GAP_W  = 140;
-  const PLOT_W = 1650;
+  /* ---------- Layout numbers ---------- */
+  const SIDE_W = 640;     // sidebar width
+  const GAP_W  = 140;     // gap between plot and sidebar
+  const PLOT_W = 1650;    // swarm width
   const W = 160 + PLOT_W + GAP_W + SIDE_W + 40;
-  const M = { t: 240, r: 30, b: 120, l: 160 }; // more space overall
+  const M = { t: 240, r: 30, b: 120, l: 160 };
   const rowH = 200, rowGap = 160;
 
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
@@ -204,10 +202,12 @@
   const statusColor = st => STATUS_COLORS.get(st) ?? '#9aa8bb';
   const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
 
-  // Stories
+  // Stories (display names)
   const STORY_PLANNING = 'Planning the riots';
   const STORY_MILITARY = 'Military involvement';
   const STORY_FRAUD    = 'Allegations of electoral fraud';
+
+  // Membership rules
   const planningThemes = new Set([
     'Calls for a military intervention',
     'Calls to join the January 8 riots',
@@ -237,13 +237,13 @@
   const gRoot=$svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
   const gPlot=gRoot.append('g');
   const gAxisTop=gPlot.append('g').attr('class','axis');
-  const gAxisBottom=gPlot.append('g').attr('class','axis');   // bottom axis
+  const gAxisBottom=gPlot.append('g').attr('class','axis');
   const gGridV=gPlot.append('g').attr('class','grid-v');
   const gRows=gPlot.append('g');
-  const gLabels=gPlot.append('g'); // platform names
-  const gLines=gRoot.append('g');
-  const gSide=gRoot.append('g');
-  const gOverlay=gRoot.append('g');
+  const gLabels=gPlot.append('g');
+  const gLines=gRoot.append('g');     // connectors
+  const gSide=gRoot.append('g');      // chips columns
+  const gOverlay=gRoot.append('g');   // expanded cards
 
   const tooltip=document.getElementById('tooltip');
 
@@ -252,10 +252,12 @@
            activeStory:'All',themeFilter:new Set(),subthemeFilter:new Set(),statusFilter:new Set(),
            search:'',annoLang:'en',postLang:'en',from:null,to:null};
 
-  // Controls
+  // Initialize legend placeholders
   document.getElementById('legend-themes').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('legend-subthemes').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('legend-status').innerHTML='<span class="legend-loading">Loading…</span>';
+
+  // Controls
   document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('apply-range').onclick=applyRange;
@@ -338,11 +340,11 @@
     );
     rByPlat=new Map(S.platforms.map(p=>{
       const mx=maxByPlat.get(p)||1;
-      const lohi=(p.toLowerCase()==='gettr')?[1.6,4.0]:[3,11]; // slightly larger overall
+      const lohi=(p.toLowerCase()==='gettr')?[1.6,4.0]:[3,11];
       return [p,d3.scaleSqrt().domain([1,mx]).range(lohi)];
     }));
 
-    // axes and vertical grid
+    // axes & grid
     const fmtTop=d3.timeFormat('%b %d');
     gAxisTop.selectAll('*').remove();
     gAxisTop.attr('transform','translate(0,-64)').call(d3.axisTop(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
@@ -358,7 +360,7 @@
     gGridV.selectAll('line').data(ticks).join('line')
       .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH+60);
 
-    // platform labels (left)
+    // platform labels
     gLabels.selectAll('*').remove();
     S.platforms.forEach((p,i)=>{
       gLabels.append('text')
@@ -369,7 +371,7 @@
         .text(p.toUpperCase());
     });
 
-    // Rows + dots
+    // rows + dots
     const rowSel=gRows.selectAll('g.row').data(S.platforms,d=>d);
     const rowEnter=rowSel.enter().append('g').attr('class','row');
     const rowAll=rowEnter.merge(rowSel).attr('transform',(d,i)=>`translate(0,${i*(rowH+rowGap)+rowH/2})`);
@@ -404,7 +406,7 @@
       const sim=d3.forceSimulation(nodes)
         .force('x',d3.forceX(d=>xScale(d.date)).strength(0.85))
         .force('y',d3.forceY(0).strength(0.16))
-        .force('collide',d3.forceCollide(d=>d.r+5))   // more padding so dots don't touch
+        .force('collide',d3.forceCollide(d=>d.r+5))
         .alpha(0.9).alphaDecay(0.02)
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
@@ -516,14 +518,15 @@
       });
   }
 
+  /* ----- story highlight rules ----- */
   function applyStoryHighlight(){
     const isPlanning=S.activeStory===STORY_PLANNING;
     const isMilitary=S.activeStory===STORY_MILITARY;
     const isFraud=S.activeStory===STORY_FRAUD;
     gRows.selectAll('g.dot').classed('dimStory', d=>{
-      if(isPlanning)  return !planningThemes.has(d.theme);
-      if(isMilitary)  return !militarySubthemes.has(d.subtheme);
-      if(isFraud)     return d.story!==STORY_FRAUD;
+      if (isPlanning) return !planningThemes.has(d.theme);
+      if (isMilitary) return !militarySubthemes.has(d.subtheme);
+      if (isFraud)    return d.theme !== 'Allegations of election fraud'; // highlight by THEME
       return false;
     });
   }
@@ -532,14 +535,16 @@
   function rebuildSidebars(){
     gLines.selectAll('*').remove(); gOverlay.selectAll('*').remove(); gSide.selectAll('*').remove();
     if (S.activeStory==='All') return;
+
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
     const perRow = new Map(S.platforms.map(p=>[p,[]]));
+
     S.data.forEach(d=>{
-      const txt=(textFor(d)||'').trim();
-      if(!txt) return;
+      const txt=(textFor(d)||'').trim(); if(!txt) return;
       if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
-      if(S.activeStory===STORY_FRAUD    && d.story!==STORY_FRAUD)     return;
+      // Fraud story limited by THEME
+      if(S.activeStory===STORY_FRAUD    && d.theme !== 'Allegations of election fraud') return;
       if(!datumVisible(d)) return;
       perRow.get(d.platform)?.push(d);
     });
@@ -548,15 +553,18 @@
     S.platforms.forEach((plat,iRow)=>{
       const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
       if(!items.length) return;
+
       const xLeft=PLOT_W+GAP_W, yTop=iRow*(rowH+rowGap);
       const gCol=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-22).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      const chipH=46, chipGap=16, lanes=Math.min(4, Math.ceil(items.length/6) || 1);
+      // Bigger chips + spacing so they don't collide
+      const chipH=56, chipGap=20, lanes=Math.min(4, Math.ceil(items.length/6) || 1);
       const laneW=Math.floor(SIDE_W/lanes)-(lanes>1?10:0);
       const laneX=i=>i*(laneW+10); const laneY=Array(lanes).fill(18);
 
-      const overlayRow=gOverlay.append('g'); let expandedFor=null, expandedGroup=null, connector=null;
+      const overlayRow=gOverlay.append('g');
+      let expandedFor=null, expandedGroup=null, connector=null;
 
       items.forEach(d=>{
         let k=0,best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i]<best){best=laneY[i];k=i;} }
@@ -566,31 +574,49 @@
         const tmp=g.append('text').text(label).attr('opacity',0);
         const w=Math.max(96,tmp.node().getComputedTextLength()+32); tmp.remove();
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',12).attr('ry',12);
-        g.append('text').attr('x',w/2).attr('y',chipH/2+7).attr('text-anchor','middle').text(label);
+        g.append('text').attr('x',w/2).attr('y',chipH/2+8).attr('text-anchor','middle').text(label);
         laneY[k]+=chipH+chipGap;
 
         g.on('click',()=>toggleExpand(d));
 
         function toggleExpand(datum){
           if(expandedFor===datum.uid){
-            expandedFor=null; if(expandedGroup){expandedGroup.remove(); expandedGroup=null;} if(connector){connector.remove(); connector=null;} return;
+            expandedFor=null;
+            if(expandedGroup){expandedGroup.remove(); expandedGroup=null;}
+            if(connector){connector.remove(); connector=null;}
+            return;
           }
-          expandedFor=datum.uid; if(expandedGroup){expandedGroup.remove();} if(connector){connector.remove();}
-          expandedGroup=overlayRow.append('g').attr('class','xchip');
+
+          expandedFor=datum.uid;
+          if(expandedGroup){expandedGroup.remove();}
+          if(connector){connector.remove();}
+
+          expandedGroup = overlayRow.append('g').attr('class','xchip');
 
           const bodyText=(textFor(datum)||'').trim();
           const x=xLeft, y=yTop+18, maxW=SIDE_W;
+          const label = fmtDate(datum.date).toUpperCase();
 
-          expandedGroup.append('text').attr('x', 24).attr('y', 36)
-            .text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x', maxW-24).attr('y', 34);
-          const body = expandedGroup.append('text').attr('x', 24).attr('y', 66);
+          // Create rect first (will resize)
+          const rect = expandedGroup.append('rect')
+            .attr('width', maxW)
+            .attr('height', 10)
+            .attr('rx', 16).attr('ry', 16);
+
+          // Header + close
+          expandedGroup.append('text').attr('x',24).attr('y',36).text(`${label} — ${datum.platform}`);
+          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-24).attr('y',34).text('×').on('click',()=>toggleExpand(datum));
+          // Body
+          const body=expandedGroup.append('text').attr('x',24).attr('y',66);
           wrapSvgText(body, maxW-48, 28, 220, bodyText);
-          const lines = body.selectAll('tspan').nodes().length || 1;
-          const boxH = 38 + 10 + (lines*28) + 28;
+          const lines=body.selectAll('tspan').nodes().length||1;
+          const boxH=38 + 10 + (lines*28) + 28;
           rect.attr('height', boxH);
 
-          // connector
+          // Position in sidebar
+          expandedGroup.attr('transform',`translate(${x},${y})`);
+
+          // Connector curve from dot to box
           const pos=posByUid.get(datum.uid);
           if(pos){
             const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-14, y2=y+boxH/2;
@@ -623,6 +649,7 @@
     gRows.selectAll('g.dot').classed('hidden', d=>!datumVisible(d));
     if (S.activeStory!=='All' && rebuildSB) rebuildSidebars();
   }
+
   function applyRange(){
     const fromV=document.getElementById('from-date').value;
     const toV=document.getElementById('to-date').value;
@@ -633,7 +660,7 @@
     rebuild();
   }
 
-  // Tooltip (bigger; only requested fields)
+  // Tooltip (post hover)
   const fmt=d3.format(',');
   function showTooltip(evt,d){
     const el=tooltip; el.classList.remove('hidden');
