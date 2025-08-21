@@ -3,65 +3,79 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>BR Jan 8 — All Platforms • Remote CSV interactive beeswarms</title>
+<title>The 100 most engaged social media posts leading up to the January 8th riots in Brasília (2022-2023)</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<!-- Fonts served from your repo -->
 <style>
-  :root{--bg:#0b0f14; --panel:#0f1622; --stroke:#213248; --fg:#e6eef7; --muted:#9fb3c8; --accent:#7cc4ff;}
+@font-face{
+  font-family:"EBGaramond";
+  src:url("https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/EBGaramond-Regular.ttf") format("truetype");
+  font-weight:400; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"SchulbuchNord";
+  src:url("https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/SchulbuchNord-Normal.otf") format("opentype");
+  font-weight:400; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"SchulbuchSued";
+  src:url("https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/SchulbuchSued-Fett.otf") format("opentype");
+  font-weight:700; font-style:normal; font-display:swap;
+}
+</style>
+
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#0f1622; --stroke:#213248; --fg:#e6eef7; --muted:#9fb3c8; --accent:#7cc4ff;
+    --sep:#101621;
+  }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-  a{color:var(--accent)}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"SchulbuchNord",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  b,strong{font-family:"SchulbuchSued","SchulbuchNord",sans-serif;font-weight:700}
   .wrap{max-width:1850px;margin:24px auto 90px;padding:0 16px}
-  header h1{margin:.2rem 0 .1rem;font-size:24px}
-  header p{margin:0 0 8px;color:var(--muted)}
+  header h1{margin:.2rem 0 2.0rem;font-size:36px;line-height:1.18;font-family:"EBGaramond",serif}
 
   .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:10px}
   .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;background:#0e1520;color:var(--fg);font-size:13px}
-  select,input[type="date"]{border-radius:10px;border:1px solid var(--stroke);background:#0e1520;color:var(--fg);padding:8px 10px;font-weight:600}
+  select,input[type="date"],button{border-radius:10px;border:1px solid var(--stroke);background:#0e1520;color:var(--fg);padding:8px 10px;font-weight:700;font-family:"SchulbuchSued"}
+  #search{flex:1;background:#0e1520;color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:8px 10px}
 
-  .viz{margin-top:12px;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px}
-  svg{width:100%;height:auto;display:block}
-  .axis text{fill:var(--muted);font-size:12px}
-  .axis path,.axis line{stroke:#33465e}
-  .track{stroke:#1a2433;stroke-width:1}
-  .platform-label{fill:#9fb3c8;font-size:13px}
-
-  .legend-top{display:block; margin-top:12px}
+  .legend-top{display:block;margin-top:14px}
   .legend-top .section{border:1px solid var(--stroke);border-radius:12px;padding:12px 12px 14px;background:#0e1520;margin-bottom:12px}
-  .legend-top h3{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:700}
+  .legend-top h3{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:700;font-family:"SchulbuchSued"}
   .legend-top .legend-row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
-  .legend-loading{color:#9fb3c8;font-size:12px}
-
   .legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg);cursor:pointer}
   .legend-item .swatch{width:14px;height:14px;border-radius:50%;border:1.5px solid #fff3}
   .legend-item .stroke{border-radius:3px;height:10px;width:22px;background:transparent}
   .legend-item.dim{opacity:.35}
-  .explain{margin:.2rem 0 .8rem;color:#9fb3c8;font-size:12px}
-
+  .legend-loading{color:#9fb3c8;font-size:12px}
   .size-chips{display:flex;flex-wrap:wrap;gap:10px 16px}
   .chip{display:inline-flex;align-items:center;gap:8px;padding:4px 8px;border:1px solid var(--stroke);border-radius:999px;background:#0e1520;color:#9fb3c8;font-size:12px;white-space:nowrap}
   .chip svg{width:40px;height:14px}
-
   .story-item{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--stroke);border-radius:12px;background:#0e1520;color:var(--fg);cursor:pointer;font-size:12px}
   .story-item.active{outline:2px solid #6fa7ff}
 
-  .tool{position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.35;max-width:460px;box-shadow:0 10px 30px #0006}
-  .tool h4{margin:0 0 6px;font-size:13px;color:var(--accent)}
-  .tool p{margin:0 0 6px;white-space:pre-wrap}
-  .tool .meta{color:var(--muted);font-size:12px}
+  .viz{margin-top:18px;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px}
+  svg{width:100%;height:auto;display:block}
 
-  .panel-title{fill:#9fb3c8; font-size:11px}
+  .axis text{fill:var(--fg);font-size:16px;font-family:"SchulbuchSued"}
+  .axis path,.axis line{stroke:#33465e}
+  .grid-v line{stroke:#1c2a3c;stroke-width:1;opacity:.55}
 
-  /* Chips (closed) */
-  .chip-g rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.2}
-  .chip-g text{fill:#e6eef7; font-size:14px}
+  .platform-label{display:none} /* no horizontal row lines */
+  .ring-sep{stroke:var(--sep)}
 
-  /* Expanded panel */
-  .xchip rect{fill:#0b1220; stroke:#6fa7ff; stroke-width:1.8}
-  .xchip text{fill:#e6eef7; font-size:15px}
-  .xbtn{fill:#cfe2ff; font-size:18px; cursor:pointer}
+  /* Context chips + expanded cards (bigger, even padding) */
+  .chip-g rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.4}
+  .chip-g text{fill:#e6eef7;font-size:16px}
+
+  .xchip rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.8}
+  .xchip text{fill:#e6eef7;font-size:18px}
+  .xbtn{fill:#cfe2ff;font-size:22px;cursor:pointer}
+  .panel-title{fill:#9fb3c8;font-size:13px;font-family:"SchulbuchSued"}
+
+  .tool{position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);border:1px solid var(--stroke);border-radius:12px;padding:16px 18px;font-size:16px;line-height:1.45;max-width:560px;box-shadow:0 10px 30px #0006}
   .hidden{display:none}
   .dimStory{opacity:.25}
   .loading{fill:#9fb3c8;font-size:12px}
@@ -70,8 +84,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Top posts leading up to Jan 8, 2023 — all platforms</h1>
-    <p>Each dot is a post. <b>Dot area ∝ Overall engagement</b> (per‑platform). <b>Fill = Theme</b>. <b>Outer ring = Status</b>. Click any dot to open its source.</p>
+    <h1>The 100 most engaged social media posts leading up to the January 8th riots in Brasília (2022-2023)</h1>
   </header>
 
   <div class="controls">
@@ -81,25 +94,15 @@
     <label class="pill">Post language
       <select id="post-lang"><option value="pt">Português</option><option value="en" selected>English</option></select>
     </label>
-
-    <label class="pill">From
-      <input id="from-date" type="date"/>
-    </label>
-    <label class="pill">To
-      <input id="to-date" type="date"/>
-    </label>
-    <button id="apply-range">Apply range</button>
-
-    <input id="search" placeholder="Search (post / theme / status / link)" style="flex:1;background:#0e1520;color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:8px 10px"/>
+    <label class="pill">From <input id="from-date" type="date"/></label>
+    <label class="pill">To <input id="to-date" type="date"/></label>
+    <button id="apply-range" class="pill" style="cursor:pointer">Apply range</button>
+    <input id="search" placeholder="Search (post / theme / status / link)"/>
   </div>
 
   <div class="legend-top">
     <div class="section">
       <h3>What you are seeing</h3>
-      <p class="explain">
-        Dots are posts. <b>Dot size</b>: Overall engagement (normalised per platform).
-        <b>Fill</b>: Theme. <b>Outer ring</b>: Summarised status.
-      </p>
       <div id="size-chips" class="size-chips"></div>
     </div>
 
@@ -125,7 +128,7 @@
   </div>
 
   <div class="viz">
-    <svg id="chart" viewBox="0 0 2100 1500" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
+    <svg id="chart" viewBox="0 0 2200 1600" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
   </div>
 </div>
 
@@ -133,14 +136,14 @@
 
 <script>
 (() => {
-  // ------- Layout -------
-  const SIDE_W = 420;   // wider for bigger boxes
-  const GAP_W  = 110;
-  const PLOT_W = 1500;
+  // ---- constants ----
+  const SIDE_W = 560;  // wider/larger boxes
+  const GAP_W  = 120;
+  const PLOT_W = 1550;
   const W = 120 + PLOT_W + GAP_W + SIDE_W + 28;
-  const H0 = 1500;
-  const M={t:170,r:28,b:90,l:120};
-  const rowH = 170, rowGap = 130;
+  const H0 = 1600;
+  const M={t:220,r:28,b:90,l:120};  // extra space under title
+  const rowH = 180, rowGap = 140;
 
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
   const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
@@ -162,6 +165,18 @@
     story:['Story']
   };
 
+  // Theme colors (exact HEX)
+  const THEME_COLOR = new Map([
+    ['Allegations of election fraud', '#E0F3A1'],
+    ['Strikes in support of a military coup', '#FEDD8D'],
+    ['Calls for a military intervention', '#F99858'],
+    ['Calls to join the January 8 riots', '#DE4D4A'],
+    ['References to, or calls for, a civil war', '#9E0142'],
+    ['Prophecising a coup', '#FDF3A9'],
+    ['Other', '#9aa3ad']
+  ]);
+  const colorForTheme = t => THEME_COLOR.get(t) || THEME_COLOR.get('Other');
+
   const STATUS_COLORS = new Map([
     ['Removed by the user',    '#C96918'],
     ['Removed by platform',    '#E1524A'],
@@ -172,14 +187,13 @@
     ['Online',                 'transparent'],
     ['Unknown',                '#9aa8bb']
   ]);
-  const themeColor = d3.scaleOrdinal(
-    d3.schemeTableau10.concat(['#e07a5f','#3d405b','#81b29a','#f2cc8f','#f4a261','#2a9d8f','#e76f51','#a7c957','#bc6c25','#6d597a'])
-  );
+  const statusColor = st => STATUS_COLORS.get(st) ?? '#9aa8bb';
+  const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
 
-  const STORY_PLANNING = 'Planning the riots';     // Story 1
-  const STORY_MILITARY = 'Military involvement';   // Story 2
-  const STORY_FRAUD    = 'Allegations of electoral fraud'; // Story 3
-
+  // Stories
+  const STORY_PLANNING = 'Planning the riots';
+  const STORY_MILITARY = 'Military involvement';
+  const STORY_FRAUD    = 'Allegations of electoral fraud';
   const planningThemes = new Set([
     'Calls for a military intervention',
     'Calls to join the January 8 riots',
@@ -189,52 +203,53 @@
   ]);
   const militarySubthemes = new Set(['Military support','Military barracks']);
 
-  // ------- SVG & layers -------
+  // Engagement labels
+  const ENG_LABEL = new Map([
+    ['Telegram', 'Total views and shares'],
+    ['GETTR', 'No engagement'],
+    ['Twitter', 'Likes, retweets and replies'],
+    ['YouTube', 'Views and comments'],
+    ['Facebook', 'Shares and replies'],
+    ['Instagram', 'Shares and replies']
+  ]);
+
+  // SVG setup
   const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${H0}`);
-  const defs = $svg.append('defs');
+  const defs=$svg.append('defs');
   defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
     .attr('refX',10).attr('refY',5).attr('markerWidth',7).attr('markerHeight',7).attr('orient','auto')
     .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#6fa7ff');
 
-  const gRoot = $svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
-  const gPlot = gRoot.append('g');
-  const gAxisTop = gPlot.append('g').attr('class','axis');
-  const gRows = gPlot.append('g');
+  const gRoot=$svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
+  const gPlot=gRoot.append('g');
+  const gAxisTop=gPlot.append('g').attr('class','axis');
+  const gGridV=gPlot.append('g').attr('class','grid-v');
+  const gRows=gPlot.append('g');
+  const gLines=gRoot.append('g');
+  const gSide=gRoot.append('g');
+  const gOverlay=gRoot.append('g');
 
-  const gLines   = gRoot.append('g');   // connectors
-  const gSide    = gRoot.append('g');   // chips + placeholders
-  const gOverlay = gRoot.append('g');   // expanded cards
+  const tooltip=document.getElementById('tooltip');
 
-  const tooltip = document.getElementById('tooltip');
+  // State
+  const S={raw:[],data:[],platforms:[],themes:new Set(),subthemes:new Set(),statuses:new Set(),
+           activeStory:'All',themeFilter:new Set(),subthemeFilter:new Set(),statusFilter:new Set(),
+           search:'',annoLang:'en',postLang:'en',from:null,to:null};
 
-  // ------- State -------
-  const S={
-    raw:[], data:[], platforms:[], themes:new Set(), subthemes:new Set(), statuses:new Set(),
-    activeStory:'All',
-    themeFilter:new Set(), subthemeFilter:new Set(), statusFilter:new Set(),
-    search:'', annoLang:'en', postLang:'en', from:null, to:null
-  };
-
-  // Show initial "Loading…" placeholders for legends
-  document.getElementById('legend-themes').innerHTML = '<span class="legend-loading">Loading…</span>';
-  document.getElementById('legend-subthemes').innerHTML = '<span class="legend-loading">Loading…</span>';
-  document.getElementById('legend-status').innerHTML = '<span class="legend-loading">Loading…</span>';
-
-  // ------- Controls -------
+  // controls
+  document.getElementById('legend-themes').innerHTML='<span class="legend-loading">Loading…</span>';
+  document.getElementById('legend-subthemes').innerHTML='<span class="legend-loading">Loading…</span>';
+  document.getElementById('legend-status').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('apply-range').onclick=applyRange;
   let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter(true);},160)});
 
-  // ------- Utils -------
+  // helpers
   const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
   function col(r,keys){for(const k of keys){if(r[k]!=null&&String(r[k]).trim()!=='')return String(r[k]).trim();}return'';}
   function num(r,keys){const v=col(r,keys);if(v==='')return NaN;const nv=+String(v).replace(/\u00A0/g,' ').replace(/[^\d.\-]/g,'');return isFinite(nv)?nv:NaN;}
   function parseDate(s){if(!s)return null;let d=new Date(s);if(!isNaN(+d))return d;const fmts=['%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M','%d/%m/%Y'];for(const f of fmts){const p=d3.timeParse(f);d=p(s);if(d)return d;}return null;}
-  function statusColor(st){ if (!st) return '#9aa8bb'; if (STATUS_COLORS.has(st)) return STATUS_COLORS.get(st); return '#9aa8bb'; }
-
-  // is datum currently visible?
   function datumVisible(d){
     if(S.themeFilter.size && !S.themeFilter.has(d.theme)) return false;
     if(S.statusFilter.size && !S.statusFilter.has(d.summarised_status)) return false;
@@ -246,54 +261,42 @@
     return true;
   }
 
-  // ------- Load CSV -------
+  // load
   fetch(CSV_URL,{cache:"no-store"}).then(r=>r.text()).then(text=>{
     const header=(text.split(/\r?\n/)[0]||""); const delim=header.includes(";")?";":",";
     const rows=d3.dsvFormat(delim).parse(text); ingest(rows);
-  }).catch(err=>banner("Could not load CSV. Ensure the GitHub raw URL is public. "+err.message));
+  }).catch(err=>banner("Could not load CSV. "+err.message));
 
   function banner(msg){
     const d=document.createElement('div');
-    d.style.cssText="margin-top:10px;padding:10px;border:1px solid #513; background:#1a0f0f;color:#ffd7d7;border-radius:10px";
+    d.style.cssText="margin-top:10px;padding:10px;border:1px solid #513;background:#1a0f0f;color:#ffd7d7;border-radius:10px";
     d.textContent=msg; document.querySelector('.wrap').prepend(d);
   }
 
   function ingest(rows){
     const clean=rows.map((r,i)=>{
       const date=parseDate(col(r,COLS.date)); if(!date) return null;
-      const storyRaw=(col(r,COLS.story)||'').trim();
-      const story = storyRaw==='Story 1' ? STORY_PLANNING
-                   : storyRaw==='Story 2' ? STORY_MILITARY
-                   : storyRaw==='Story 3' ? STORY_FRAUD
-                   : storyRaw;
-      const engagement_raw = col(r,COLS.engagement);                  // keep raw
-      const engagement_num = num(r,COLS.engagement);                  // numeric (NaN if "?" etc.)
+      const sRaw=(col(r,COLS.story)||'').trim();
+      const story = sRaw==='Story 1' ? STORY_PLANNING : sRaw==='Story 2' ? STORY_MILITARY : sRaw==='Story 3' ? STORY_FRAUD : sRaw;
+      const engagement_raw = col(r,COLS.engagement);
+      const engagement_num = num(r,COLS.engagement);
       return {
-        uid:i,
-        date,
-        platform:col(r,COLS.platform)||'Unknown',
-        engagement_raw,
-        engagement_num,
-        theme:col(r,COLS.theme)||'—',
-        subtheme:col(r,COLS.subtheme)||'—',
-        post_en:col(r,COLS.post_en),
-        post_pt:col(r,COLS.post_pt),
-        context_en:col(r,COLS.anno_en),
-        context_pt:col(r,COLS.anno_pt),
+        uid:i,date,platform:col(r,COLS.platform)||'Unknown',
+        engagement_raw,engagement_num,
+        theme:col(r,COLS.theme)||'Other',subtheme:col(r,COLS.subtheme)||'—',
+        post_en:col(r,COLS.post_en),post_pt:col(r,COLS.post_pt),
+        context_en:col(r,COLS.anno_en),context_pt:col(r,COLS.anno_pt),
         story,
         detailed_status:col(r,COLS.detailed_status),
         summarised_status:col(r,COLS.summarised_status)||'Unknown',
-        annex:col(r,COLS.annex),
-        link:col(r,COLS.link)
+        annex:col(r,COLS.annex),link:col(r,COLS.link)
       };
     }).filter(Boolean);
 
     S.raw=clean;
-
     const desired=['Telegram','GETTR','Twitter','YouTube','Facebook','Instagram'];
     const present=Array.from(new Set(clean.map(d=>d.platform)));
     S.platforms = desired.filter(p=>present.includes(p)).concat(present.filter(p=>!desired.includes(p)));
-
     S.themes=new Set(clean.map(d=>d.theme).filter(Boolean));
     S.subthemes=new Set(clean.map(d=>d.subtheme).filter(Boolean));
     S.statuses=new Set(clean.map(d=>d.summarised_status).filter(Boolean));
@@ -308,55 +311,56 @@
     rebuild();
   }
 
-  // ------- Build -------
-  let xScale, rByPlat, posByUid=new Map();
+  // build plot
+  let xScale, rByPlat, posByUid=new Map(), maxByPlat=new Map();
 
   function rebuild(){
     S.data=S.raw.filter(d=>(!S.from||d.date>=S.from)&&(!S.to||d.date<=S.to));
-
     const tMin=d3.min(S.data,d=>d.date), tMax=d3.max(S.data,d=>d.date);
     const innerH=S.platforms.length*(rowH+rowGap);
     d3.select('#chart').attr('viewBox',`0 0 ${M.l+PLOT_W+GAP_W+SIDE_W+M.r} ${M.t+innerH+M.b}`);
 
     xScale=d3.scaleTime().domain([tMin,tMax]).range([0,PLOT_W]);
 
-    // per-platform radius scales – EXCLUDE posts where engagement is "?" (NaN)
-    const byPlatMax=d3.rollup(
-      S.data.filter(d=>isFinite(d.engagement_num) && d.engagement_num>0),
+    // per‑platform max (ignore '?')
+    maxByPlat=d3.rollup(
+      S.data.filter(d=>isFinite(d.engagement_num)&&d.engagement_num>0),
       v=>d3.max(v,d=>d.engagement_num)||1,
       d=>d.platform
     );
     rByPlat=new Map(S.platforms.map(p=>{
-      const mx=byPlatMax.get(p)||1;
+      const mx=maxByPlat.get(p)||1;
       const lohi=(p.toLowerCase()==='gettr')?[1.2,3.4]:[2,9];
       return [p,d3.scaleSqrt().domain([1,mx]).range(lohi)];
     }));
 
+    // top axis & vertical grid
     const fmtTop=d3.timeFormat('%b %d');
     gAxisTop.selectAll('*').remove();
-    gAxisTop.attr('transform','translate(0,-40)')
-      .call(d3.axisTop(xScale).ticks(12).tickFormat(d=>fmtTop(d).toUpperCase()));
+    gAxisTop.attr('transform','translate(0,-56)').call(d3.axisTop(xScale).ticks(12).tickFormat(d=>fmtTop(d).toUpperCase()));
+    gAxisTop.selectAll('text').attr('font-size',18);
+    gGridV.selectAll('*').remove();
+    gGridV.attr('transform','translate(0,-40)');
+    const ticks=xScale.ticks(12);
+    gGridV.selectAll('line').data(ticks).join('line')
+      .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH+40);
 
+    // rows & dots
     const rowSel=gRows.selectAll('g.row').data(S.platforms,d=>d);
     const rowEnter=rowSel.enter().append('g').attr('class','row');
-    rowEnter.append('line').attr('class','track').attr('x1',0).attr('x2',PLOT_W);
-    rowEnter.append('text').attr('class','platform-label').attr('x',-12).attr('y',5).attr('text-anchor','end');
     const rowAll=rowEnter.merge(rowSel).attr('transform',(d,i)=>`translate(0,${i*(rowH+rowGap)+rowH/2})`);
-    rowAll.select('line').attr('y1',0).attr('y2',0);
-    rowAll.select('text').text(d=>d.toUpperCase());
+    rowAll.selectAll('*').remove();
 
     posByUid.clear();
-
-    // Story placeholders
     if (S.activeStory!=='All') showLoadingSidebars();
 
-    let pending = 0;
+    let pending=0;
     rowAll.each(function(plat,iRow){
-      const rowBaseY = iRow*(rowH+rowGap)+rowH/2;
+      const rowBaseY=iRow*(rowH+rowGap)+rowH/2;
+      const rScale=rByPlat.get(plat);
       const nodes=S.data.filter(d=>d.platform===plat).map(d=>{
-        const rScale = rByPlat.get(plat);
-        const r = isFinite(d.engagement_num) ? (rScale?.(Math.max(1,d.engagement_num))||4) : (rScale?.(1)||3); // '?' -> tiny size
-        return {...d, r, x:xScale(d.date), y:0};
+        const r=isFinite(d.engagement_num)?(rScale?.(Math.max(1,d.engagement_num))||4):(rScale?.(1)||3);
+        return {...d,r,x:xScale(d.date),y:0};
       });
 
       const sel=d3.select(this).selectAll('g.dot').data(nodes,d=>d.uid);
@@ -368,87 +372,80 @@
           .on('blur',hideTooltip)
           .on('click',(e,d)=>openDetails(d));
         g.append('circle').attr('class','ring-status').attr('fill','none').attr('stroke-width',3);
-        g.append('circle').attr('class','ring-sep').attr('fill','none').attr('stroke','#101621').attr('stroke-width',2);
+        g.append('circle').attr('class','ring-sep').attr('fill','none').attr('stroke-width',2);
         g.append('circle').attr('class','core').attr('stroke','none');
         return g;
       });
 
-      const sim = d3.forceSimulation(nodes)
+      const sim=d3.forceSimulation(nodes)
         .force('x',d3.forceX(d=>xScale(d.date)).strength(0.8))
         .force('y',d3.forceY(0).strength(0.14))
         .force('collide',d3.forceCollide(d=>d.r+4))
         .alpha(0.9).alphaDecay(0.02)
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
-          gDot.each(d=>posByUid.set(d.uid,{x:d.x, y:rowBaseY + d.y, rowY:rowBaseY}));
-          gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>themeColor(d.theme));
-          const needsOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
-          gDot.select('circle.ring-sep').attr('r',d=>d.r+1.3).attr('opacity',d=>needsOutline(d)?1:0);
+          gDot.each(d=>posByUid.set(d.uid,{x:d.x,y:rowBaseY+d.y,rowY:rowBaseY}));
+          gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>colorForTheme(d.theme));
+          const needOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
+          gDot.select('circle.ring-sep').attr('r',d=>d.r+1.8).attr('stroke','var(--sep)').attr('opacity',d=>needOutline(d)?1:0);
           gDot.select('circle.ring-status')
-            .attr('r',d=>d.r+2.5)
+            .attr('r',d=>d.r+3.2)
             .attr('stroke',d=>isGETTR(d)?'transparent':statusColor(d.summarised_status))
-            .attr('opacity',d=>needsOutline(d)?1:0);
+            .attr('opacity',d=>needOutline(d)?1:0);
         });
 
-      pending++;
-      sim.on('end',()=>{ if(--pending===0){ // all rows finished
-        buildLegends(); buildSubthemeLegend(); buildStatusLegend(); buildSizeChips();
-        applyStoryHighlight();
-        filter(true); // rebuild sidebars from *visible* posts
-      }});
+      pending++; sim.on('end',()=>{ if(--pending===0){ buildLegends(); buildSizeChips(); applyStoryHighlight(); filter(true); }});
     });
   }
 
-  // Placeholder sidebars
   function showLoadingSidebars(){
     gSide.selectAll('*').remove();
-    const xLeft = PLOT_W + GAP_W;
+    const xLeft=PLOT_W+GAP_W;
     S.platforms.forEach((plat,iRow)=>{
-      const yTop = iRow*(rowH+rowGap);
-      const g = gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-      g.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
-      g.append('text').attr('class','loading').attr('x',0).attr('y',20).text('Loading annotations…');
+      const yTop=iRow*(rowH+rowGap);
+      const g=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
+      g.append('text').attr('class','panel-title').attr('x',0).attr('y',-18).text(`${plat.toUpperCase()} — CONTEXT`);
+      g.append('text').attr('class','loading').attr('x',0).attr('y',16).text('Loading annotations…');
     });
   }
 
-  // Legends & chips
+  // legends (themes/subthemes/status)
   function buildLegends(){
-    const container=d3.select('#legend-themes'); container.selectAll('*').remove();
+    const themeBox=d3.select('#legend-themes'); themeBox.selectAll('*').remove();
     const themes=[...S.themes].sort();
-    container.selectAll('.legend-item').data(themes,d=>d).join(enter=>{
+    themeBox.selectAll('.legend-item').data(themes,d=>d).join(enter=>{
       const div=enter.append('div').attr('class','legend-item');
-      div.html(d=>`<span class="swatch" style="background:${themeColor(d)}"></span> <span>${esc(d||'—')}</span>`);
+      div.html(d=>`<span class="swatch" style="background:${colorForTheme(d)}"></span> <span>${esc(d||'—')}</span>`);
       div.on('click',(e,d)=>{ toggleSet(S.themeFilter,d); updateLegendStates(); filter(true); });
     });
-  }
-  function buildSubthemeLegend(){
-    const container=d3.select('#legend-subthemes'); container.selectAll('*').remove();
-    const st=[...S.subthemes].sort();
-    container.selectAll('.legend-item').data(st,d=>d).join(enter=>{
+
+    const subBox=d3.select('#legend-subthemes'); subBox.selectAll('*').remove();
+    const sts=[...S.subthemes].sort();
+    subBox.selectAll('.legend-item').data(sts,d=>d).join(enter=>{
       const div=enter.append('div').attr('class','legend-item');
       div.html(d=>`<span class="swatch" style="background:#556b8e"></span> <span>${esc(d||'—')}</span>`);
       div.on('click',(e,d)=>{ toggleSet(S.subthemeFilter,d); updateLegendStates(); filter(true); });
     });
-  }
-  function buildStatusLegend(){
-    const container=d3.select('#legend-status'); container.selectAll('*').remove();
-    const sts=[...S.statuses].sort();
-    container.selectAll('.legend-item').data(sts,d=>d).join(enter=>{
+
+    const statBox=d3.select('#legend-status'); statBox.selectAll('*').remove();
+    const status=[...S.statuses].sort();
+    statBox.selectAll('.legend-item').data(status,d=>d).join(enter=>{
       const div=enter.append('div').attr('class','legend-item');
-      const cHTML = d=>{
-        const c=statusColor(d); const style=c==='transparent'?'border:2px dashed #567; opacity:.6':`border:2px solid ${c}`;
+      div.html(d=>{
+        const c=statusColor(d);
+        const style=c==='transparent'?'border:2px dashed #567; opacity:.6':`border:2px solid ${c}`;
         return `<span class="stroke" style="${style}"></span> <span>${esc(d||'—')}</span>`;
-      };
-      div.html(cHTML);
+      });
       div.on('click',(e,d)=>{ toggleSet(S.statusFilter,d); updateLegendStates(); filter(true); });
     });
+
+    function updateLegendStates(){
+      d3.select('#legend-themes').selectAll('.legend-item').classed('dim', d=> S.themeFilter.size && !S.themeFilter.has(d));
+      d3.select('#legend-status').selectAll('.legend-item').classed('dim', d=> S.statusFilter.size && !S.statusFilter.has(d));
+      d3.select('#legend-subthemes').selectAll('.legend-item').classed('dim', d=> S.subthemeFilter.size && !S.subthemeFilter.has(d));
+    }
+    function toggleSet(s,v){ s.has(v)?s.delete(v):s.add(v); }
   }
-  function updateLegendStates(){
-    d3.select('#legend-themes').selectAll('.legend-item').classed('dim', d=> S.themeFilter.size && !S.themeFilter.has(d));
-    d3.select('#legend-status').selectAll('.legend-item').classed('dim', d=> S.statusFilter.size && !S.statusFilter.has(d));
-    d3.select('#legend-subthemes').selectAll('.legend-item').classed('dim', d=> S.subthemeFilter.size && !S.subthemeFilter.has(d));
-  }
-  function toggleSet(set, val){ if(set.has(val)) set.delete(val); else set.add(val); }
 
   function buildSizeChips(){
     const box=document.getElementById('size-chips'); box.innerHTML='';
@@ -458,7 +455,7 @@
       const min=(vals.length?d3.min(vals):1), max=(vals.length?d3.max(vals):1);
       const r = rByPlat && rByPlat.get(p) ? rByPlat.get(p) : d3.scaleSqrt().domain([1,max]).range([2,9]);
       const chip=document.createElement('div'); chip.className='chip';
-      const name=document.createElement('span'); name.textContent=p; chip.appendChild(name);
+      chip.appendChild(document.createTextNode(p));
       const svg=d3.create('svg');
       svg.append('circle').attr('cx',10).attr('cy',7).attr('r',r(min)).attr('fill','#5a7');
       svg.append('circle').attr('cx',30).attr('cy',7).attr('r',r(max)).attr('fill','#5a7');
@@ -468,7 +465,7 @@
     });
   }
 
-  // Stories
+  // stories legend
   function buildStoriesLegend(){
     const el=d3.select('#legend-stories'); el.selectAll('*').remove();
     const stories=['All', STORY_PLANNING, STORY_MILITARY, STORY_FRAUD];
@@ -477,16 +474,11 @@
       .classed('active', d=>d===S.activeStory)
       .text(d=>d)
       .on('click',(e,d)=>{
-        S.activeStory=d;
-        d3.selectAll('.story-item').classed('active', x=>x===d);
-        gOverlay.selectAll('*').remove();
-        gSide.selectAll('*').remove();
-        gLines.selectAll('*').remove();
+        S.activeStory=d; d3.selectAll('.story-item').classed('active', x=>x===d);
+        gOverlay.selectAll('*').remove(); gSide.selectAll('*').remove(); gLines.selectAll('*').remove();
         if (d!=='All') showLoadingSidebars();
-
         if(d===STORY_PLANNING){
-          const max=d3.max(S.raw,x=>x.date);
-          const start=new Date('2022-12-15T00:00:00');
+          const max=d3.max(S.raw,x=>x.date); const start=new Date('2022-12-15T00:00:00');
           S.from=start; S.to=max;
           document.getElementById('from-date').value=start.toISOString().slice(0,10);
           document.getElementById('to-date').value=max.toISOString().slice(0,10);
@@ -500,27 +492,22 @@
       });
   }
   function applyStoryHighlight(){
-    const isPlanning = S.activeStory===STORY_PLANNING;
-    const isMilitary = S.activeStory===STORY_MILITARY;
-    const isFraud    = S.activeStory===STORY_FRAUD; // for now just dim nothing special for fraud; data Story 3 controls which annotations appear
+    const isPlanning=S.activeStory===STORY_PLANNING;
+    const isMilitary=S.activeStory===STORY_MILITARY;
+    const isFraud=S.activeStory===STORY_FRAUD;
     gRows.selectAll('g.dot').classed('dimStory', d=>{
       if(isPlanning)  return !planningThemes.has(d.theme);
       if(isMilitary)  return !militarySubthemes.has(d.subtheme);
-      if(isFraud)     return false;
+      if(isFraud)     return d.story!==STORY_FRAUD;
       return false;
     });
   }
 
-  // Sidebars + expandable panels (visible dots only)
+  // rebuild sidebars for visible items only
   function rebuildSidebars(){
-    gLines.selectAll('*').remove();
-    gOverlay.selectAll('*').remove();
-    gSide.selectAll('*').remove();
+    gLines.selectAll('*').remove(); gOverlay.selectAll('*').remove(); gSide.selectAll('*').remove();
     if (S.activeStory==='All') return;
-
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
-
-    // gather visible, story‑matching posts that have annotation text
     const perRow = new Map(S.platforms.map(p=>[p,[]]));
     S.data.forEach(d=>{
       const txt=(textFor(d)||'').trim();
@@ -528,117 +515,93 @@
       if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
       if(S.activeStory===STORY_FRAUD    && d.story!==STORY_FRAUD)     return;
-      if(!datumVisible(d)) return; // only for visible posts
+      if(!datumVisible(d)) return;
       perRow.get(d.platform)?.push(d);
     });
 
     const fmtDate=d3.timeFormat('%b %d');
-
     S.platforms.forEach((plat,iRow)=>{
       const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
       if(!items.length) return;
-      const xLeft = PLOT_W + GAP_W;
-      const yTop  = iRow*(rowH+rowGap);
-      const gCol = gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-      gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-10).text(`${plat.toUpperCase()} — CONTEXT`);
+      const xLeft=PLOT_W+GAP_W, yTop=iRow*(rowH+rowGap);
+      const gCol=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
+      gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-18).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      const chipH = 32, chipGap=10, lanes = Math.min(4, Math.ceil(items.length/6) || 1);
-      const laneW = Math.floor(SIDE_W/lanes) - (lanes>1?6:0);
-      const laneX = i => i*(laneW+6);
-      const laneY = Array(lanes).fill(18);
-      const chipPad=12;
+      const chipH=40, chipGap=14, lanes=Math.min(4, Math.ceil(items.length/6) || 1);
+      const laneW=Math.floor(SIDE_W/lanes)-(lanes>1?8:0);
+      const laneX=i=>i*(laneW+8); const laneY=Array(lanes).fill(18);
 
-      const overlayRow = gOverlay.append('g');
-      let expandedForUid = null;
-      let expandedGroup = null;
-      let connector = null;
+      const overlayRow=gOverlay.append('g'); let expandedFor=null, expandedGroup=null, connector=null;
 
       items.forEach(d=>{
-        let k=0, best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i] < best){ best=laneY[i]; k=i; } }
-        const g = gCol.append('g').attr('class','chip-g').style('cursor','pointer')
-                       .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
-
-        const label = fmtDate(d.date).toUpperCase();
-        const tmp = g.append('text').text(label).attr('x',0).attr('y',0).attr('opacity',0);
-        const w = Math.max(70, tmp.node().getComputedTextLength() + chipPad*2); tmp.remove();
-        g.append('rect').attr('width',w).attr('height',chipH).attr('rx',8).attr('ry',8);
-        g.append('text').attr('x',w/2).attr('y',chipH/2+5).attr('text-anchor','middle').text(label);
-        laneY[k]+= chipH + chipGap;
+        let k=0,best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i]<best){best=laneY[i];k=i;} }
+        const g=gCol.append('g').attr('class','chip-g').style('cursor','pointer')
+                     .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
+        const label=fmtDate(d.date).toUpperCase();
+        const tmp=g.append('text').text(label).attr('opacity',0);
+        const w=Math.max(86,tmp.node().getComputedTextLength()+28); tmp.remove();
+        g.append('rect').attr('width',w).attr('height',chipH).attr('rx',10).attr('ry',10);
+        g.append('text').attr('x',w/2).attr('y',chipH/2+6).attr('text-anchor','middle').text(label);
+        laneY[k]+=chipH+chipGap;
 
         g.on('click',()=>toggleExpand(d));
 
         function toggleExpand(datum){
-          if(expandedForUid === datum.uid){ // close
-            expandedForUid = null;
-            if(expandedGroup){ expandedGroup.remove(); expandedGroup=null; }
-            if(connector){ connector.remove(); connector=null; }
-            return;
+          if(expandedFor===datum.uid){
+            expandedFor=null; if(expandedGroup){expandedGroup.remove(); expandedGroup=null;} if(connector){connector.remove(); connector=null;} return;
           }
-          expandedForUid = datum.uid;
-          if(expandedGroup){ expandedGroup.remove(); }
-          if(connector){ connector.remove(); }
-          expandedGroup = overlayRow.append('g').attr('class','xchip'); // always on top
+          expandedFor=datum.uid; if(expandedGroup){expandedGroup.remove();} if(connector){connector.remove();}
+          expandedGroup=overlayRow.append('g').attr('class','xchip');
 
-          const bodyText = (textFor(datum)||'').trim();
-          const x = xLeft;
-          const y = yTop + 18;
-          const maxW = SIDE_W;
+          const bodyText=(textFor(datum)||'').trim();
+          const x=xLeft, y=yTop+18, maxW=SIDE_W;
 
-          // Header + close (and clicking the panel closes too)
-          expandedGroup.append('rect').attr('width',maxW).attr('height',10).attr('rx',10).attr('ry',10); // placeholder, resized later
-          const head = expandedGroup.append('text').attr('x',12).attr('y',22).text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-16).attr('y',20)
-            .text('×').on('click',()=>toggleExpand(datum));
-          expandedGroup.on('click',()=>toggleExpand(datum)); // click anywhere closes
-
-          const body = expandedGroup.append('text').attr('x',12).attr('y',38);
-          wrapSvgText(body, maxW-22, 18, 120, bodyText); // larger line-height
-          const lines = body.selectAll('tspan').nodes().length || 1;
-          const boxH = 26 + (lines*18) + 16;
-
-          expandedGroup.select('rect')
-            .attr('width',maxW).attr('height',boxH).attr('rx',10).attr('ry',10);
+          const rect=expandedGroup.append('rect').attr('width',maxW).attr('height',10).attr('rx',14).attr('ry',14);
+          // header
+          expandedGroup.append('text').attr('x',18).attr('y',28).text(`${label} — ${datum.platform}`);
+          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-18).attr('y',26).text('×').on('click',()=>toggleExpand(datum));
+          expandedGroup.on('click',()=>toggleExpand(datum));
+          // body (even padding: 18 all sides; lineHeight 22)
+          const body=expandedGroup.append('text').attr('x',18).attr('y',50);
+          wrapSvgText(body, maxW-36, 22, 200, bodyText);
+          const lines=body.selectAll('tspan').nodes().length||1;
+          const boxH=28 + 6 + (lines*22) + 18; // 18 top, ~6 spacer, 18 bottom
+          rect.attr('height',boxH);
           expandedGroup.attr('transform',`translate(${x},${y})`);
 
-          // connector arrow
-          const pos = posByUid.get(datum.uid);
+          // connector
+          const pos=posByUid.get(datum.uid);
           if(pos){
-            const x1 = pos.x, y1 = pos.y;
-            const x2 = PLOT_W + GAP_W - 10;
-            const y2 = y + boxH/2;
-            connector = gLines.append('path')
-              .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-              .attr('stroke','#6fa7ff').attr('stroke-width',1.8).attr('fill','none')
-              .attr('marker-end','url(#arrow)');
+            const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-12, y2=y+boxH/2;
+            connector=gLines.append('path')
+              .attr('d',`M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
+              .attr('stroke','#6fa7ff').attr('stroke-width',2).attr('fill','none').attr('marker-end','url(#arrow)');
           }
         }
       });
     });
   }
 
-  function wrapSvgText(sel, width, lineHeight, maxLines, rawText){
+  function wrapSvgText(sel, width, lineH, maxLines, rawText){
     sel.each(function(){
-      const text = d3.select(this).text('');
-      const words = (rawText||'').split(/\s+/).filter(Boolean);
-      let line=[], lineNumber=0;
-      let tspan = text.append('tspan').attr('x', 12).attr('dy', lineHeight).text('');
-      for (const w of words){
+      const text=d3.select(this).text('');
+      const words=(rawText||'').split(/\s+/).filter(Boolean);
+      let line=[], ln=0; let tspan=text.append('tspan').attr('x',18).attr('dy',lineH).text('');
+      for(const w of words){
         line.push(w); tspan.text(line.join(' '));
-        if (tspan.node().getComputedTextLength() > width){
+        if(tspan.node().getComputedTextLength()>width){
           line.pop(); tspan.text(line.join(' '));
-          line=[w]; tspan = text.append('tspan').attr('x',12).attr('dy',lineHeight).text(w);
-          lineNumber++; if(lineNumber>maxLines){ tspan.text('…'); break; }
+          line=[w]; tspan=text.append('tspan').attr('x',18).attr('dy',lineH).text(w);
+          ln++; if(ln>maxLines){ tspan.text('…'); break; }
         }
       }
     });
   }
 
-  // Filter / Range
   function filter(rebuildSB){
     gRows.selectAll('g.dot').classed('hidden', d=>!datumVisible(d));
-    if (S.activeStory!=='All' && rebuildSB) rebuildSidebars(); // chips = visible posts only
+    if (S.activeStory!=='All' && rebuildSB) rebuildSidebars();
   }
-
   function applyRange(){
     const fromV=document.getElementById('from-date').value;
     const toV=document.getElementById('to-date').value;
@@ -649,32 +612,38 @@
     rebuild();
   }
 
-  // Tooltip / Open
+  // tooltip: only four items (content, detailed status, total engagement, normalised)
   const fmt=d3.format(',');
   function showTooltip(evt,d){
     const el=tooltip; el.classList.remove('hidden');
-    const dateStr=d.date.toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
     const post = (S.postLang==='pt'? d.post_pt : d.post_en) || '(no text)';
-    const engagementStr = (d.engagement_raw && d.engagement_raw.trim()==='?') ? '?' : fmt(Math.round(d.engagement_num||0));
-    el.innerHTML=[
-      `<h4>${esc(d.platform)} • ${dateStr}</h4>`,
-      `<p>${esc(post)}</p>`,
-      `<div class="meta">Theme: <b>${esc(d.theme)}</b> • Sub-theme: <b>${esc(d.subtheme)}</b></div>`,
-      `<div class="meta">Status: <b>${esc(d.summarised_status)}</b> • <i>Detailed:</i> ${esc(d.detailed_status||'—')}</div>`,
-      `<div class="meta">Engagement: <b>${esc(engagementStr)}</b></div>`
+    const label = ENG_LABEL.get(d.platform) || 'Engagement';
+    const totalStr = (d.platform==='GETTR') ? 'No engagement'
+                   : (d.engagement_raw && d.engagement_raw.trim()==='?') ? '?'
+                   : fmt(Math.round(d.engagement_num||0));
+    const mx=maxByPlat.get(d.platform)||1;
+    const norm = (d.platform==='GETTR') ? null : (isFinite(d.engagement_num) && mx>0 ? Math.round(d.engagement_num/mx*100) : null);
+    const normStr = (d.platform==='GETTR') ? '—' : (isFinite(norm)? `${norm}% of platform max` : '—');
+
+    el.innerHTML = [
+      `<p style="margin:0 0 6px">${esc(post)}</p>`,
+      `<div><b>Detailed status:</b> ${esc(d.detailed_status||'—')}</div>`,
+      `<div><b>${esc(label)}:</b> ${esc(totalStr)}</div>`,
+      `<div><b>Normalised:</b> ${esc(normStr)}</div>`
     ].join('');
-    const {pageX:x,pageY:y}=evt; const maxW=460; el.style.left=Math.min(window.innerWidth-maxW-20,x+14)+'px'; el.style.top=(y+14)+'px';
+
+    const {pageX:x,pageY:y}=evt; const maxW=560;
+    el.style.left=Math.min(window.innerWidth-maxW-20,x+14)+'px';
+    el.style.top=(y+14)+'px';
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
-  // OPEN LINKS: Annex EXACTLY AS GIVEN; else URL (untouched)
+  // open: Annex first, else URL
   function openDetails(d){
-    const annex = (d.annex||'').trim();
-    const url   = (d.link||'').trim();
-    const best = annex ? annex : url ? url : null;
-    if(!best) return;
-    window.open(best,'_blank','noopener');
+    const annex=(d.annex||'').trim(); const url=(d.link||'').trim(); const best=annex?annex:(url?url:null);
+    if(!best) return; window.open(best,'_blank','noopener');
   }
+
 })();
 </script>
 </body>
