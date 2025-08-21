@@ -581,18 +581,14 @@
           const bodyText=(textFor(datum)||'').trim();
           const x=xLeft, y=yTop+18, maxW=SIDE_W;
 
-          const rect=expandedGroup.append('rect').attr('width',maxW).attr('height',10).attr('rx',16).attr('ry',16);
-          // header
-          expandedGroup.append('text').attr('x',20).attr('y',32).text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-20).attr('y',30).text('×').on('click',()=>toggleExpand(datum));
-          expandedGroup.on('click',()=>toggleExpand(datum));
-          // body (even padding, larger font/line height)
-          const body=expandedGroup.append('text').attr('x',20).attr('y',58);
-          wrapSvgText(body, maxW-40, 24, 220, bodyText);
-          const lines=body.selectAll('tspan').nodes().length||1;
-          const boxH=34 + 8 + (lines*24) + 20; // 20px padding bottom
-          rect.attr('height',boxH);
-          expandedGroup.attr('transform',`translate(${x},${y})`);
+          expandedGroup.append('text').attr('x', 24).attr('y', 36)
+            .text(`${label} — ${datum.platform}`);
+          expandedGroup.append('text').attr('class','xbtn').attr('x', maxW-24).attr('y', 34);
+          const body = expandedGroup.append('text').attr('x', 24).attr('y', 66);
+          wrapSvgText(body, maxW-48, 28, 220, bodyText);
+          const lines = body.selectAll('tspan').nodes().length || 1;
+          const boxH = 38 + 10 + (lines*28) + 28;
+          rect.attr('height', boxH);
 
           // connector
           const pos=posByUid.get(datum.uid);
