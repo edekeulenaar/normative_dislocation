@@ -68,12 +68,14 @@
 
   /* OPENED card — bigger */
   .xchip rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:2}
-  .xchip text{fill:#e6eef7;font-size:28px}   /* was 26px */
-  .xbtn{fill:#cfe2ff;font-size:33px;cursor:pointer}  /* was 32px */
+  .xchip text{fill:#e6eef7;font-size:28px}
+  .xbtn{fill:#cfe2ff;font-size:33px;cursor:pointer}
 
-  .tool{ position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
-         border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
-         font-size:15px;line-height:1.5;max-width:640px;box-shadow:0 10px 30px #0006 }
+  .tool{
+    position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
+    border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
+    font-size:15px;line-height:1.5;max-width:640px;box-shadow:0 10px 30px #0006
+  }
   .hidden{display:none}
   .dimStory{opacity:.25}
   .loading{fill:#9fb3c8;font-size:14px}
@@ -315,7 +317,8 @@
     gAxisTop.selectAll('text').attr('font-size',25);
 
     gAxisBottom.selectAll('*').remove();
-    gAxisBottom.attr('transform',`translate(0,${innerH+60})`)
+    const innerH2=S.platforms.length*(rowH+rowGap);
+    gAxisBottom.attr('transform',`translate(0,${innerH2+60})`)
       .call(d3.axisBottom(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
     gAxisBottom.selectAll('text').attr('font-size',25);
 
@@ -323,7 +326,7 @@
     gGridV.attr('transform','translate(0,-78)');
     const ticks=xScale.ticks(10);
     gGridV.selectAll('line').data(ticks).join('line')
-      .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH+90);
+      .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH2+90);
 
     gLabels.selectAll('*').remove();
     S.platforms.forEach((p,i)=>{
@@ -489,10 +492,10 @@
     gOverlay.selectAll('*').remove();
     gSide.selectAll('*').remove();
     if (S.activeStory === 'All') return;
-  
+
     const textFor = d => S.annoLang === 'pt' ? d.context_pt : d.context_en;
-  
-    // ❶ Collect visible annos per platform
+
+    // Collect visible annos per platform
     const perRow = new Map(S.platforms.map(p => [p, []]));
     S.data.forEach(d => {
       const t = (textFor(d) || '').trim();
@@ -503,79 +506,77 @@
       if (!datumVisible(d)) return;
       perRow.get(d.platform)?.push(d);
     });
-  
+
     const fmtDate = d3.timeFormat('%b %d');
-  
-    // ❷ One open card PER PLATFORM (state lives outside chip handler)
     const openCardByPlatform = new Map(); // plat -> {uid, close()}
-  
+
     S.platforms.forEach((plat, iRow) => {
       const items = (perRow.get(plat) || []).sort((a,b)=>a.date-b.date);
       if (!items.length) return;
-  
+
       const xLeft = PLOT_W + GAP_W;
       const yTop  = iRow * (rowH + rowGap);
-  
+
       const gCol = gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-30).text(`${plat.toUpperCase()} — CONTEXT`);
-  
-      // Chip layout (no overlaps)
+
+      // Chip layout
       const MIN_CHIP_W = 150, chipH = 78, chipGap = 28;
       const lanes = Math.max(1, Math.min(Math.floor(SIDE_W / MIN_CHIP_W), items.length));
       const laneW = Math.floor(SIDE_W / lanes) - (lanes>1 ? 10 : 0);
       const laneX = i => i * (laneW + (lanes>1 ? 10 : 0));
       const laneY = Array(lanes).fill(14);
-  
+
       const overlayRow = gOverlay.append('g'); // cards for THIS platform
-  
+
       items.forEach(d => {
-        // place into the least-tall lane
+        // Least-tall lane
         let k = 0, best = laneY[0];
         for (let i=1;i<lanes;i++){ if (laneY[i] < best){ best = laneY[i]; k = i; } }
-  
+
         const g = gCol.append('g')
           .attr('class','chip-g')
           .style('cursor','pointer')
           .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
-  
+
         const label = fmtDate(d.date).toUpperCase();
         const tmp   = g.append('text').text(label).attr('opacity',0);
         const w     = Math.min(laneW-4, Math.max(MIN_CHIP_W, tmp.node().getComputedTextLength()+36));
         tmp.remove();
-  
+
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',14).attr('ry',14);
         g.append('text').attr('x',w/2).attr('y',chipH/2+11).attr('text-anchor','middle').text(label);
         laneY[k] += chipH + chipGap;
-  
-        // ❸ Toggle handler with hard close of existing card for this platform
+
+        // Toggle handler
         g.on('click', (e) => {
           e.stopPropagation();
           const open = openCardByPlatform.get(plat);
           if (open && open.uid === d.uid) {
-            open.close(); openCardByPlatform.delete(plat); // re-click closes
+            open.close(); openCardByPlatform.delete(plat);
             return;
           }
-          if (open) { open.close(); openCardByPlatform.delete(plat); } // close other open card
-  
-          // build BIG card
+          if (open) { open.close(); openCardByPlatform.delete(plat); }
+
+          // BIG card
           const MAX_W = SIDE_W, PAD_X = 36, TITLE_Y = 60, BODY_Y = 110, LINE_H = 42, PAD_BOTTOM = 56;
           const card  = overlayRow.append('g').attr('class','xchip').attr('transform',`translate(${xLeft},${yTop+20})`).raise();
           const rect  = card.append('rect').attr('width',MAX_W).attr('height',10).attr('rx',18).attr('ry',18);
-  
+
           card.append('text').attr('x',PAD_X).attr('y',TITLE_Y).text(`${label} — ${plat}`);
           card.append('text').attr('class','xbtn').attr('x',MAX_W-PAD_X).attr('y',TITLE_Y-2).text('×')
             .on('click',(ev)=>{ ev.stopPropagation(); const c=openCardByPlatform.get(plat); if(c){c.close(); openCardByPlatform.delete(plat);} });
-  
+
           const body = card.append('text').attr('x',PAD_X).attr('y',BODY_Y);
           wrapSvgText(body, MAX_W-PAD_X*2, LINE_H, 999, (textFor(d)||'').trim());
           const lines = body.selectAll('tspan').nodes().length || 1;
           const boxH  = BODY_Y + lines*LINE_H + PAD_BOTTOM;
           rect.attr('height', boxH);
-  
-          // clicking anywhere on the card also closes (nice UX, and works even if it overlaps)
+
+          // Click anywhere on the card to close
           rect.on('click',(ev)=>{ ev.stopPropagation(); const c=openCardByPlatform.get(plat); if(c){c.close(); openCardByPlatform.delete(plat);} });
-  
-          // connector
+
+          // Connector
           const pos = posByUid.get(d.uid);
           let connector = null;
           if (pos){
@@ -584,15 +585,15 @@
               .attr('d',`M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
               .attr('stroke','#6fa7ff').attr('stroke-width',2.8).attr('fill','none').attr('marker-end','url(#arrow)');
           }
-  
-          // register closer
+
+          // Register closer
           openCardByPlatform.set(plat, {
             uid: d.uid,
             close: () => { card.remove(); if (connector) connector.remove(); }
           });
         });
       });
-    }
+    });
   }
 
   function wrapSvgText(sel, width, lineH, maxLines, rawText){
