@@ -76,11 +76,11 @@
 
   /* Context chips + expanded cards (bigger) */
   .chip-g rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.6}
-  .chip-g text{fill:#e6eef7;font-size:20px}
+  .chip-g text{fill:#e6eef7;font-size:22px}         /* larger chip label */
 
   .xchip rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:2}
-  .xchip text{fill:#e6eef7;font-size:20px}
-  .xbtn{fill:#cfe2ff;font-size:24px;cursor:pointer}
+  .xchip text{fill:#e6eef7;font-size:22px}          /* larger card text */
+  .xbtn{fill:#cfe2ff;font-size:28px;cursor:pointer} /* bigger close */
   .panel-title{fill:#9fb3c8;font-size:20px;font-family:"SchulbuchSued"}
 
   /* Tooltip (post hover) */
@@ -543,8 +543,8 @@
       const txt=(textFor(d)||'').trim(); if(!txt) return;
       if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
-      // Fraud story limited by THEME
-      if(S.activeStory===STORY_FRAUD    && d.theme !== 'Allegations of election fraud') return;
+      // Fraud story limited by THEME (not by Story column)
+      if(S.activeStory===STORY_FRAUD && d.theme !== 'Allegations of election fraud') return;
       if(!datumVisible(d)) return;
       perRow.get(d.platform)?.push(d);
     });
@@ -558,8 +558,8 @@
       const gCol=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-22).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      // Bigger chips + spacing so they don't collide
-      const chipH=56, chipGap=20, lanes=Math.min(4, Math.ceil(items.length/6) || 1);
+      // Larger chips + spacing + more lanes (prevents overlaps)
+      const chipH = 68, chipGap = 24, lanes = Math.min(6, Math.ceil(items.length/7) || 1);
       const laneW=Math.floor(SIDE_W/lanes)-(lanes>1?10:0);
       const laneX=i=>i*(laneW+10); const laneY=Array(lanes).fill(18);
 
@@ -572,12 +572,16 @@
                      .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
         const label=fmtDate(d.date).toUpperCase();
         const tmp=g.append('text').text(label).attr('opacity',0);
-        const w=Math.max(96,tmp.node().getComputedTextLength()+32); tmp.remove();
+        const w=Math.max(96,tmp.node().getComputedTextLength()+34); tmp.remove();
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',12).attr('ry',12);
-        g.append('text').attr('x',w/2).attr('y',chipH/2+8).attr('text-anchor','middle').text(label);
+        g.append('text').attr('x',w/2).attr('y',chipH/2+10).attr('text-anchor','middle').text(label);
         laneY[k]+=chipH+chipGap;
 
-        g.on('click',()=>toggleExpand(d));
+        // Toggle open/close reliably & prevent bubbling
+        g.on('click',(e)=>{
+          e.stopPropagation();
+          toggleExpand(d);
+        });
 
         function toggleExpand(datum){
           if(expandedFor===datum.uid){
@@ -597,20 +601,26 @@
           const x=xLeft, y=yTop+18, maxW=SIDE_W;
           const label = fmtDate(datum.date).toUpperCase();
 
-          // Create rect first (will resize)
+          // Create rect first (resized after measuring)
           const rect = expandedGroup.append('rect')
             .attr('width', maxW)
             .attr('height', 10)
             .attr('rx', 16).attr('ry', 16);
 
-          // Header + close
-          expandedGroup.append('text').attr('x',24).attr('y',36).text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-24).attr('y',34).text('×').on('click',()=>toggleExpand(datum));
-          // Body
-          const body=expandedGroup.append('text').attr('x',24).attr('y',66);
-          wrapSvgText(body, maxW-48, 28, 220, bodyText);
+          // Header + close (bigger padding)
+          expandedGroup.append('text').attr('x',28).attr('y',40).text(`${label} — ${datum.platform}`);
+          expandedGroup.append('text').attr('class','xbtn')
+            .attr('x',maxW-28).attr('y',38)
+            .text('×')
+            .on('click',()=>toggleExpand(datum));
+
+          // Body with larger line height and padding
+          const body=expandedGroup.append('text').attr('x',28).attr('y',78);
+          wrapSvgText(body, maxW-56, 32, 220, bodyText);
+
+          // Height: header(44) + gap(12) + lines*32 + bottom(30)
           const lines=body.selectAll('tspan').nodes().length||1;
-          const boxH=38 + 10 + (lines*28) + 28;
+          const boxH=44 + 12 + (lines*32) + 30;
           rect.attr('height', boxH);
 
           // Position in sidebar
@@ -627,6 +637,9 @@
         }
       });
     });
+
+    // Click anywhere outside to close any open card
+    document.addEventListener('click', () => { gOverlay.selectAll('*').remove(); gLines.selectAll('*').remove(); }, { once:true });
   }
 
   function wrapSvgText(sel, width, lineH, maxLines, rawText){
