@@ -68,9 +68,8 @@
 
   /* OPENED card — bigger */
   .xchip rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:2}
-  .xchip text{fill:#e6eef7;font-size:26px}
-  .xbtn{fill:#cfe2ff;font-size:32px;cursor:pointer}
-  .panel-title{fill:#9fb3c8;font-size:20px;font-family:"SchulbuchSued"}
+  .xchip text{fill:#e6eef7;font-size:30px}   /* was 26px */
+  .xbtn{fill:#cfe2ff;font-size:36px;cursor:pointer}  /* was 32px */
 
   .tool{ position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
          border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
@@ -539,43 +538,81 @@
         g.on('click',(e)=>{ e.stopPropagation(); toggleExpand(d); });
 
         function toggleExpand(datum){
-          // toggle close if same chip
-          if(expandedFor===datum.uid){
-            expandedFor=null;
-            if(expandedGroup){expandedGroup.remove(); expandedGroup=null;}
-            if(connector){connector.remove(); connector=null;}
+          // Close if this same chip is already open
+          if (expandedFor === datum.uid) {
+            expandedFor = null;
+            if (expandedGroup) { expandedGroup.remove(); expandedGroup = null; }
+            if (connector)     { connector.remove();     connector     = null; }
             return;
           }
-          expandedFor=datum.uid;
-          if(expandedGroup){expandedGroup.remove();}
-          if(connector){connector.remove();}
-
-          const bodyText=(textFor(datum)||'').trim();
-          const maxW=SIDE_W, x=xLeft, y=yTop+20;
-
-          expandedGroup=overlayRow.append('g').attr('class','xchip').attr('transform',`translate(${x},${y})`);
-          const rect=expandedGroup.append('rect').attr('width',maxW).attr('height',10).attr('rx',18).attr('ry',18);
-
-          // Header bigger and lower
-          expandedGroup.append('text').attr('x',30).attr('y',50).text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-30).attr('y',48)
-            .text('×').on('click',(e)=>{ e.stopPropagation(); toggleExpand(datum); });
-
-          // Body with larger line-height
-          const body=expandedGroup.append('text').attr('x',30).attr('y',92);
-          wrapSvgText(body, maxW-60, 38, 220, bodyText);
-          const lines=body.selectAll('tspan').nodes().length||1;
-          const boxH=56 + 14 + (lines*38) + 40; // generous padding top/bottom
-          rect.attr('height',boxH);
-
-          const pos=posByUid.get(datum.uid);
-          if(pos){
-            const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-18, y2=y+boxH/2;
-            connector=gLines.append('path')
-              .attr('d',`M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-              .attr('stroke','#6fa7ff').attr('stroke-width',2.6).attr('fill','none').attr('marker-end','url(#arrow)');
+        
+          expandedFor = datum.uid;
+          if (expandedGroup) { expandedGroup.remove(); }
+          if (connector)     { connector.remove(); }
+        
+          const bodyText = (textFor(datum) || '').trim();
+        
+          // --- BIGGER SIZING KNOBS ---
+          const MAX_W      = SIDE_W;  // full sidebar width
+          const PAD_X      = 36;      // left/right padding
+          const TITLE_Y    = 60;      // header baseline
+          const BODY_Y     = 110;     // body first line baseline
+          const LINE_H     = 42;      // body line height (bigger text spacing)
+          const PAD_BOTTOM = 56;      // extra space at bottom
+          // ---------------------------
+        
+          const x = xLeft, y = yTop + 20;
+        
+          expandedGroup = overlayRow.append('g')
+            .attr('class','xchip')
+            .attr('transform', `translate(${x},${y})`)
+            .raise(); // keep opened card on top
+        
+          const rect = expandedGroup.append('rect')
+            .attr('width', MAX_W)
+            .attr('height', 10)       // temp; we compute actual height below
+            .attr('rx', 18).attr('ry', 18);
+        
+          // Title
+          const label = d3.timeFormat('%b %d')(datum.date).toUpperCase();
+          expandedGroup.append('text')
+            .attr('x', PAD_X)
+            .attr('y', TITLE_Y)
+            .text(`${label} — ${datum.platform}`);
+        
+          // Close button (also toggles same chip -> closes)
+          expandedGroup.append('text')
+            .attr('class','xbtn')
+            .attr('x', MAX_W - PAD_X)
+            .attr('y', TITLE_Y - 2)
+            .text('×')
+            .on('click', (e) => { e.stopPropagation(); toggleExpand(datum); });
+        
+          // Body (wrapped, bigger line-height)
+          const body = expandedGroup.append('text')
+            .attr('x', PAD_X)
+            .attr('y', BODY_Y);
+        
+          wrapSvgText(body, MAX_W - PAD_X*2, LINE_H, 999, bodyText); // width & line height ↑
+        
+          const lines = body.selectAll('tspan').nodes().length || 1;
+          const boxH  = BODY_Y + (lines * LINE_H) + PAD_BOTTOM;       // bigger overall height
+          rect.attr('height', boxH);
+        
+          // Connector arrow from dot -> card
+          const pos = posByUid.get(datum.uid);
+          if (pos) {
+            const x1 = pos.x, y1 = pos.y;
+            const x2 = PLOT_W + GAP_W - 18;
+            const y2 = y + boxH / 2;
+            connector = gLines.append('path')
+              .attr('d', `M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
+              .attr('stroke', '#6fa7ff')
+              .attr('stroke-width', 2.8)
+              .attr('fill', 'none')
+              .attr('marker-end','url(#arrow)');
           }
-        }
+        }  
       });
     });
   }
