@@ -62,12 +62,14 @@
   .platform-name{ fill:#e6eef7; font-family:"SchulbuchSued"; font-size:20px; letter-spacing:.5px; }
   .ring-sep{stroke:var(--sep)}
 
-  /* Context chips + expanded cards */
+  /* Chips */
   .chip-g rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.8}
   .chip-g text{fill:#e6eef7;font-size:22px}
+
+  /* OPENED card — bigger */
   .xchip rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:2}
-  .xchip text{fill:#e6eef7;font-size:22px}
-  .xbtn{fill:#cfe2ff;font-size:28px;cursor:pointer}
+  .xchip text{fill:#e6eef7;font-size:26px}
+  .xbtn{fill:#cfe2ff;font-size:32px;cursor:pointer}
   .panel-title{fill:#9fb3c8;font-size:20px;font-family:"SchulbuchSued"}
 
   .tool{ position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
@@ -133,10 +135,7 @@
 
 <script>
 (() => {
-  /* ---------- Layout ---------- */
-  const SIDE_W = 640;            // sidebar width
-  const GAP_W  = 160;            // gap between plot and sidebar
-  const PLOT_W = 1650;           // swarm width
+  const SIDE_W = 640, GAP_W = 160, PLOT_W = 1650;
   const W = 160 + PLOT_W + GAP_W + SIDE_W + 40;
   const M = { t: 270, r: 30, b: 140, l: 160 };
   const rowH = 200, rowGap = 170;
@@ -185,18 +184,12 @@
   const statusColor = st => STATUS_COLORS.get(st) ?? '#9aa8bb';
   const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
 
-  const STORY_PLANNING = 'Planning the riots';
-  const STORY_MILITARY = 'Military involvement';
-  const STORY_FRAUD    = 'Allegations of electoral fraud';
+  const STORY_PLANNING='Planning the riots';
+  const STORY_MILITARY='Military involvement';
+  const STORY_FRAUD='Allegations of electoral fraud';
 
-  const planningThemes = new Set([
-    'Calls for a military intervention',
-    'Calls to join the January 8 riots',
-    'Prophecising a coup',
-    'References to, or calls for, a civil war',
-    'Strikes in support of a military coup'
-  ]);
-  const militarySubthemes = new Set(['Military support','Military barracks']);
+  const planningThemes=new Set(['Calls for a military intervention','Calls to join the January 8 riots','Prophecising a coup','References to, or calls for, a civil war','Strikes in support of a military coup']);
+  const militarySubthemes=new Set(['Military support','Military barracks']);
 
   const ENG_LABEL = new Map([
     ['Telegram', 'Total views and shares'],
@@ -207,10 +200,9 @@
     ['Instagram', 'Shares and replies']
   ]);
 
-  const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${M.t + 6*(rowH+rowGap) + M.b}`);
+  const $svg=d3.select('#chart').attr('viewBox',`0 0 ${W} ${M.t + 6*(rowH+rowGap) + M.b}`);
   const defs=$svg.append('defs');
-  defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
-    .attr('refX',10).attr('refY',5).attr('markerWidth',8).attr('markerHeight',8).attr('orient','auto')
+  defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10').attr('refX',10).attr('refY',5).attr('markerWidth',8).attr('markerHeight',8).attr('orient','auto')
     .append('path').attr('d','M 0 0 L 10 5 L 0 10 z').attr('fill','#6fa7ff');
 
   const gRoot=$svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
@@ -223,13 +215,13 @@
   const gLines=gRoot.append('g');
   const gSide=gRoot.append('g');
   const gOverlay=gRoot.append('g');
-
   const tooltip=document.getElementById('tooltip');
 
   const S={raw:[],data:[],platforms:[],themes:new Set(),subthemes:new Set(),statuses:new Set(),
            activeStory:'All',themeFilter:new Set(),subthemeFilter:new Set(),statusFilter:new Set(),
            search:'',annoLang:'en',postLang:'en',from:null,to:null};
 
+  // Loading labels while data arrives
   document.getElementById('legend-themes').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('legend-subthemes').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('legend-status').innerHTML='<span class="legend-loading">Loading…</span>';
@@ -317,16 +309,15 @@
       return [p,d3.scaleSqrt().domain([1,mx]).range(lohi)];
     }));
 
-    // axes & grid — top axis higher for a bigger gap
     const fmtTop=d3.timeFormat('%b %d');
     gAxisTop.selectAll('*').remove();
     gAxisTop.attr('transform','translate(0,-98)')
-            .call(d3.axisTop(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
+      .call(d3.axisTop(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
     gAxisTop.selectAll('text').attr('font-size',25);
 
     gAxisBottom.selectAll('*').remove();
     gAxisBottom.attr('transform',`translate(0,${innerH+60})`)
-               .call(d3.axisBottom(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
+      .call(d3.axisBottom(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
     gAxisBottom.selectAll('text').attr('font-size',25);
 
     gGridV.selectAll('*').remove();
@@ -335,15 +326,9 @@
     gGridV.selectAll('line').data(ticks).join('line')
       .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH+90);
 
-    // platform labels
     gLabels.selectAll('*').remove();
     S.platforms.forEach((p,i)=>{
-      gLabels.append('text')
-        .attr('class','platform-name')
-        .attr('x',-24)
-        .attr('y',i*(rowH+rowGap)+rowH/2+6)
-        .attr('text-anchor','end')
-        .text(p.toUpperCase());
+      gLabels.append('text').attr('class','platform-name').attr('x',-24).attr('y',i*(rowH+rowGap)+rowH/2+6).attr('text-anchor','end').text(p.toUpperCase());
     });
 
     const rowSel=gRows.selectAll('g.row').data(S.platforms,d=>d);
@@ -388,10 +373,7 @@
           gDot.select('circle.core').attr('r',d=>d.r).attr('fill',d=>colorForTheme(d.theme));
           const needOutline=d=>!isGETTR(d) && (statusColor(d.summarised_status)!=='transparent');
           gDot.select('circle.ring-sep').attr('r',d=>d.r+2).attr('stroke','var(--sep)').attr('opacity',d=>needOutline(d)?1:0);
-          gDot.select('circle.ring-status')
-            .attr('r',d=>d.r+3.6)
-            .attr('stroke',d=>isGETTR(d)?'transparent':statusColor(d.summarised_status))
-            .attr('opacity',d=>needOutline(d)?1:0);
+          gDot.select('circle.ring-status').attr('r',d=>d.r+3.6).attr('stroke',d=>isGETTR(d)?'transparent':statusColor(d.summarised_status)).attr('opacity',d=>needOutline(d)?1:0);
         });
 
       pending++; sim.on('end',()=>{ if(--pending===0){ buildLegends(); buildSizeChips(); applyStoryHighlight(); filter(true); }});
@@ -502,7 +484,7 @@
     });
   }
 
-  /* ---------- Sidebars (NO OVERLAP) ---------- */
+  /* ---------- Sidebars (no overlap; big OPENED cards; chip re‑click closes) ---------- */
   function rebuildSidebars(){
     gLines.selectAll('*').remove(); gOverlay.selectAll('*').remove(); gSide.selectAll('*').remove();
     if (S.activeStory==='All') return;
@@ -512,6 +494,8 @@
 
     S.data.forEach(d=>{
       const txt=(textFor(d)||'').trim(); if(!txt) return;
+      if(S.activeStory==='STORY_PLANNING' && d.story!==STORY_PLANNING) return;
+      if(S.activeStory==='STORY_MILITARY' && d.story!==STORY_MILITARY) return;
       if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
       if(S.activeStory===STORY_FRAUD && d.theme !== 'Allegations of election fraud') return;
@@ -527,44 +511,35 @@
 
       const xLeft=PLOT_W+GAP_W, yTop=iRow*(rowH+rowGap);
       const gCol=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-
       gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-30).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      // ----- NO OVERLAP LAYOUT -----
-      const MIN_CHIP_W = 150;                        // never smaller than this
-      const MAX_LANES  = Math.max(1, Math.floor(SIDE_W / MIN_CHIP_W));
-      const lanes      = Math.max(1, Math.min(MAX_LANES, items.length));   // width-limited
-      const laneW      = Math.floor(SIDE_W / lanes) - (lanes>1 ? 10 : 0);  // per-lane width
-      const chipH      = 78;
-      const chipGap    = 28;
-      const laneX      = i => i * (laneW + (lanes>1 ? 10 : 0));
-      const laneY      = Array(lanes).fill(14);       // start below title
+      const MIN_CHIP_W=150, MAX_LANES=Math.max(1, Math.floor(SIDE_W/MIN_CHIP_W));
+      const lanes=Math.max(1, Math.min(MAX_LANES, items.length));
+      const laneW=Math.floor(SIDE_W/lanes)-(lanes>1?10:0);
+      const chipH=78, chipGap=28;
+      const laneX=i=>i*(laneW+(lanes>1?10:0));
+      const laneY=Array(lanes).fill(14);
 
-      const overlayRow = gOverlay.append('g');
-      let expandedFor  = null, expandedGroup = null, connector = null;
+      const overlayRow=gOverlay.append('g');
+      let expandedFor=null, expandedGroup=null, connector=null;
 
       items.forEach(d=>{
-        // pick lane with smallest current Y
-        let k=0,best=laneY[0];
-        for(let i=1;i<lanes;i++) if(laneY[i]<best){best=laneY[i];k=i;}
-
+        let k=0,best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i]<best){best=laneY[i];k=i;} }
         const g=gCol.append('g').attr('class','chip-g').style('cursor','pointer')
                     .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
-
         const label=fmtDate(d.date).toUpperCase();
         const tmp=g.append('text').text(label).attr('opacity',0);
-        const desired = Math.max(MIN_CHIP_W, tmp.node().getComputedTextLength()+36);
-        tmp.remove();
-        const w = Math.min(laneW-4, desired);         // cap to lane width
+        const desired=Math.max(MIN_CHIP_W,tmp.node().getComputedTextLength()+36); tmp.remove();
+        const w=Math.min(laneW-4, desired);
 
         g.append('rect').attr('width',w).attr('height',chipH).attr('rx',14).attr('ry',14);
         g.append('text').attr('x',w/2).attr('y',chipH/2+11).attr('text-anchor','middle').text(label);
+        laneY[k]+=chipH+chipGap;
 
-        laneY[k] += chipH + chipGap;
+        g.on('click',(e)=>{ e.stopPropagation(); toggleExpand(d); });
 
-        g.on('click',(e)=>{ e.stopPropagation(); toggleExpand(d, w); });
-
-        function toggleExpand(datum, chipW){
+        function toggleExpand(datum){
+          // toggle close if same chip
           if(expandedFor===datum.uid){
             expandedFor=null;
             if(expandedGroup){expandedGroup.remove(); expandedGroup=null;}
@@ -575,33 +550,30 @@
           if(expandedGroup){expandedGroup.remove();}
           if(connector){connector.remove();}
 
-          expandedGroup = overlayRow.append('g').attr('class','xchip');
-
           const bodyText=(textFor(datum)||'').trim();
-          const x=xLeft, y=yTop+20, maxW=SIDE_W;
+          const maxW=SIDE_W, x=xLeft, y=yTop+20;
 
-          const rect = expandedGroup.append('rect')
-            .attr('width', maxW)
-            .attr('height', 10)
-            .attr('rx', 18).attr('ry', 18);
+          expandedGroup=overlayRow.append('g').attr('class','xchip').attr('transform',`translate(${x},${y})`);
+          const rect=expandedGroup.append('rect').attr('width',maxW).attr('height',10).attr('rx',18).attr('ry',18);
 
-          expandedGroup.append('text').attr('x',30).attr('y',44).text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-30).attr('y',42)
-            .text('×').on('click',(e)=>{ e.stopPropagation(); toggleExpand(datum, chipW); });
+          // Header bigger and lower
+          expandedGroup.append('text').attr('x',30).attr('y',50).text(`${label} — ${datum.platform}`);
+          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-30).attr('y',48)
+            .text('×').on('click',(e)=>{ e.stopPropagation(); toggleExpand(datum); });
 
-          const body=expandedGroup.append('text').attr('x',30).attr('y',84);
-          wrapSvgText(body, maxW-60, 34, 220, bodyText);
+          // Body with larger line-height
+          const body=expandedGroup.append('text').attr('x',30).attr('y',92);
+          wrapSvgText(body, maxW-60, 38, 220, bodyText);
           const lines=body.selectAll('tspan').nodes().length||1;
-          const boxH=48 + 12 + (lines*34) + 36;
-          rect.attr('height', boxH);
-          expandedGroup.attr('transform',`translate(${x},${y})`);
+          const boxH=56 + 14 + (lines*38) + 40; // generous padding top/bottom
+          rect.attr('height',boxH);
 
           const pos=posByUid.get(datum.uid);
           if(pos){
             const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-18, y2=y+boxH/2;
             connector=gLines.append('path')
               .attr('d',`M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-              .attr('stroke','#6fa7ff').attr('stroke-width',2.4).attr('fill','none').attr('marker-end','url(#arrow)');
+              .attr('stroke','#6fa7ff').attr('stroke-width',2.6).attr('fill','none').attr('marker-end','url(#arrow)');
           }
         }
       });
