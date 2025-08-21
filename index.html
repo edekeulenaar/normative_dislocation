@@ -29,22 +29,14 @@
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"SchulbuchNord",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
   b,strong{font-family:"SchulbuchSued","SchulbuchNord",sans-serif;font-weight:700}
 
-  /* Layout */
   .wrap{max-width:1850px;margin:24px auto 90px;padding:0 16px}
-  header h1{
-    margin:.2rem 0 2.2rem;
-    font-size:20px; line-height:1.16;
-    font-family:"SchulbuchNord",serif; /* Title now SchulbuchNord */
-    letter-spacing:.2px;
-  }
+  header h1{ margin:.2rem 0 2.2rem; font-size:30px; line-height:1.16; font-family:"SchulbuchNord",serif; letter-spacing:.2px; }
 
-  /* Controls */
   .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:12px}
   .pill{display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--stroke);border-radius:999px;background:#0e1520;color:var(--fg);font-size:15px}
   select,input[type="date"],button{border-radius:12px;border:1px solid var(--stroke);background:#0e1520;color:var(--fg);padding:10px 12px;font-weight:700;font-family:"SchulbuchSued"; font-size:15px}
   #search{flex:1;background:#0e1520;color:var(--fg);border:1px solid var(--stroke);border-radius:12px;padding:10px 12px;font-size:15px}
 
-  /* Legends */
   .legend-top{display:block;margin-top:16px}
   .legend-top .section{border:1px solid var(--stroke);border-radius:14px;padding:14px 14px 16px;background:#0e1520;margin-bottom:14px}
   .legend-top h3{font-size:15px;margin:0 0 12px;color:var(--muted);font-weight:700;font-family:"SchulbuchSued"}
@@ -63,34 +55,24 @@
   .viz{margin-top:20px;background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:14px}
   svg{width:100%;height:auto;display:block}
 
-  /* Axes */
-  .axis text{fill:var(--fg);font-size:20px;font-family:"SchulbuchSued"}
+  .axis text{fill:var(--fg);font-size:25px;font-family:"SchulbuchSued"}
   .axis path,.axis line{stroke:#33465e}
   .grid-v line{stroke:#1c2a3c;stroke-width:1;opacity:.6}
 
-  /* Row/platform labels (left side) */
-  .platform-name{
-    fill:#e6eef7; font-family:"SchulbuchSued"; font-size:20px; letter-spacing:.5px;
-  }
-
-  /* Dots */
+  .platform-name{ fill:#e6eef7; font-family:"SchulbuchSued"; font-size:20px; letter-spacing:.5px; }
   .ring-sep{stroke:var(--sep)}
 
-  /* Context chips + expanded cards — bigger text & padding for 13" screens */
-  .chip-g rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.6}
-  .chip-g text{fill:#e6eef7;font-size:18px}
-
+  /* Context chips + expanded cards */
+  .chip-g rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:1.8}
+  .chip-g text{fill:#e6eef7;font-size:22px}
   .xchip rect{fill:#0b1220;stroke:#6fa7ff;stroke-width:2}
-  .xchip text{fill:#e6eef7;font-size:20px}
-  .xbtn{fill:#cfe2ff;font-size:24px;cursor:pointer}
-  .panel-title{fill:#9fb3c8;font-size:15px;font-family:"SchulbuchSued"}
+  .xchip text{fill:#e6eef7;font-size:22px}
+  .xbtn{fill:#cfe2ff;font-size:28px;cursor:pointer}
+  .panel-title{fill:#9fb3c8;font-size:20px;font-family:"SchulbuchSued"}
 
-  /* Tooltip (bigger) */
-  .tool{
-    position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
-    border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
-    font-size:18px;line-height:1.5;max-width:640px;box-shadow:0 10px 30px #0006
-  }
+  .tool{ position:absolute;pointer-events:none;background:#0d1521;color:var(--fg);
+         border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;
+         font-size:15px;line-height:1.5;max-width:640px;box-shadow:0 10px 30px #0006 }
   .hidden{display:none}
   .dimStory{opacity:.25}
   .loading{fill:#9fb3c8;font-size:14px}
@@ -100,8 +82,6 @@
 <div class="wrap">
   <header>
     <h1>The 100 most engaged social media posts leading up to the January 8th riots in Brasília (2022-2023)</h1>
-    <h3>Emillie de Keulenaar (University of Copenhagen) and Marcelo Alves dos Santos Jr (PUC-Rio)</h3>
-    <h3>in: de Keulenaar, E. and Alves dos Santos Junior, M. (2023) ‘Dislocated moderation: platform content moderation of Brazilian militarism during the 2022 elections’, in AoIR2023: The 24th Annual Conference of the Association of Internet Researchers. AoIR, Philadelphia, PA, USA: AoIR. Available at: https://docs.google.com/document/d/1jqYlr97jARmZCfYZ7Wf4r9VwHlgUVE9h/edit?usp=sharing&ouid=118237212392921747507&rtpof=true&sd=true.</h3>
   </header>
 
   <div class="controls">
@@ -145,7 +125,7 @@
   </div>
 
   <div class="viz">
-    <svg id="chart" viewBox="0 0 2400 1900" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
+    <svg id="chart" viewBox="0 0 2400 2000" preserveAspectRatio="xMidYMid meet" aria-label="Beeswarm chart"></svg>
   </div>
 </div>
 
@@ -153,13 +133,13 @@
 
 <script>
 (() => {
-  /* ---------- Sizing tuned for 13" ---------- */
-  const SIDE_W = 640;     // wider side column
-  const GAP_W  = 140;
-  const PLOT_W = 1650;
+  /* ---------- Layout ---------- */
+  const SIDE_W = 640;            // sidebar width
+  const GAP_W  = 160;            // gap between plot and sidebar
+  const PLOT_W = 1650;           // swarm width
   const W = 160 + PLOT_W + GAP_W + SIDE_W + 40;
-  const M = { t: 240, r: 30, b: 120, l: 160 }; // more space overall
-  const rowH = 200, rowGap = 160;
+  const M = { t: 270, r: 30, b: 140, l: 160 };
+  const rowH = 200, rowGap = 170;
 
   const DEFAULT_CSV_URL = "https://raw.githubusercontent.com/edekeulenaar/normative_dislocation/main/Annex%20-%20Beeswarm%20graph%20(Top%20~500%20per%20platform)%20-%2031%20Oct-10%20Jan%202023%20-%20Final%20spreadsheet%20for%20article%20viz.csv";
   const CSV_URL = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_URL;
@@ -181,7 +161,6 @@
     story:['Story']
   };
 
-  // Theme colors
   const THEME_COLOR = new Map([
     ['Allegations of election fraud', '#E0F3A1'],
     ['Strikes in support of a military coup', '#FEDD8D'],
@@ -206,10 +185,10 @@
   const statusColor = st => STATUS_COLORS.get(st) ?? '#9aa8bb';
   const isGETTR = d => (d.platform||'').toLowerCase()==='gettr';
 
-  // Stories
   const STORY_PLANNING = 'Planning the riots';
   const STORY_MILITARY = 'Military involvement';
   const STORY_FRAUD    = 'Allegations of electoral fraud';
+
   const planningThemes = new Set([
     'Calls for a military intervention',
     'Calls to join the January 8 riots',
@@ -219,7 +198,6 @@
   ]);
   const militarySubthemes = new Set(['Military support','Military barracks']);
 
-  // Engagement labels
   const ENG_LABEL = new Map([
     ['Telegram', 'Total views and shares'],
     ['GETTR', 'No engagement'],
@@ -229,7 +207,6 @@
     ['Instagram', 'Shares and replies']
   ]);
 
-  /* ---------- SVG scaffolding ---------- */
   const $svg = d3.select('#chart').attr('viewBox',`0 0 ${W} ${M.t + 6*(rowH+rowGap) + M.b}`);
   const defs=$svg.append('defs');
   defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 10')
@@ -239,31 +216,29 @@
   const gRoot=$svg.append('g').attr('transform',`translate(${M.l},${M.t})`);
   const gPlot=gRoot.append('g');
   const gAxisTop=gPlot.append('g').attr('class','axis');
-  const gAxisBottom=gPlot.append('g').attr('class','axis');   // bottom axis
+  const gAxisBottom=gPlot.append('g').attr('class','axis');
   const gGridV=gPlot.append('g').attr('class','grid-v');
   const gRows=gPlot.append('g');
-  const gLabels=gPlot.append('g'); // platform names
+  const gLabels=gPlot.append('g');
   const gLines=gRoot.append('g');
   const gSide=gRoot.append('g');
   const gOverlay=gRoot.append('g');
 
   const tooltip=document.getElementById('tooltip');
 
-  // State
   const S={raw:[],data:[],platforms:[],themes:new Set(),subthemes:new Set(),statuses:new Set(),
            activeStory:'All',themeFilter:new Set(),subthemeFilter:new Set(),statusFilter:new Set(),
            search:'',annoLang:'en',postLang:'en',from:null,to:null};
 
-  // Controls
   document.getElementById('legend-themes').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('legend-subthemes').innerHTML='<span class="legend-loading">Loading…</span>';
   document.getElementById('legend-status').innerHTML='<span class="legend-loading">Loading…</span>';
+
   document.getElementById('anno-lang').onchange=e=>{S.annoLang=e.target.value; rebuildSidebars();};
   document.getElementById('post-lang').onchange=e=>{S.postLang=e.target.value;};
   document.getElementById('apply-range').onclick=applyRange;
   let deb; document.getElementById('search').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{S.search=(document.getElementById('search').value||'').toLowerCase().trim(); filter(true);},160)});
 
-  // Helpers
   const esc = s => (s==null?'':String(s)).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   function col(r,keys){for(const k of keys){if(r[k]!=null&&String(r[k]).trim()!=='')return String(r[k]).trim();}return'';}
   function num(r,keys){const v=col(r,keys);if(v==='')return NaN;const nv=+String(v).replace(/\u00A0/g,' ').replace(/[^\d.\-]/g,'');return isFinite(nv)?nv:NaN;}
@@ -279,7 +254,6 @@
     return true;
   }
 
-  // Load CSV
   fetch(CSV_URL,{cache:"no-store"}).then(r=>r.text()).then(text=>{
     const header=(text.split(/\r?\n/)[0]||""); const delim=header.includes(";")?";":",";
     const rows=d3.dsvFormat(delim).parse(text); ingest(rows);
@@ -332,7 +306,6 @@
 
     xScale=d3.scaleTime().domain([tMin,tMax]).range([0,PLOT_W]);
 
-    // per‑platform max (ignore '?')
     maxByPlat=d3.rollup(
       S.data.filter(d=>isFinite(d.engagement_num)&&d.engagement_num>0),
       v=>d3.max(v,d=>d.engagement_num)||1,
@@ -340,27 +313,29 @@
     );
     rByPlat=new Map(S.platforms.map(p=>{
       const mx=maxByPlat.get(p)||1;
-      const lohi=(p.toLowerCase()==='gettr')?[1.6,4.0]:[3,11]; // slightly larger overall
+      const lohi=(p.toLowerCase()==='gettr')?[1.6,4.0]:[3,11];
       return [p,d3.scaleSqrt().domain([1,mx]).range(lohi)];
     }));
 
-    // axes and vertical grid
+    // axes & grid — top axis higher for a bigger gap
     const fmtTop=d3.timeFormat('%b %d');
     gAxisTop.selectAll('*').remove();
-    gAxisTop.attr('transform','translate(0,-64)').call(d3.axisTop(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
-    gAxisTop.selectAll('text').attr('font-size',20);
+    gAxisTop.attr('transform','translate(0,-98)')
+            .call(d3.axisTop(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
+    gAxisTop.selectAll('text').attr('font-size',25);
 
     gAxisBottom.selectAll('*').remove();
-    gAxisBottom.attr('transform',`translate(0,${innerH+44})`).call(d3.axisBottom(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
-    gAxisBottom.selectAll('text').attr('font-size',20);
+    gAxisBottom.attr('transform',`translate(0,${innerH+60})`)
+               .call(d3.axisBottom(xScale).ticks(10).tickFormat(d=>fmtTop(d).toUpperCase()));
+    gAxisBottom.selectAll('text').attr('font-size',25);
 
     gGridV.selectAll('*').remove();
-    gGridV.attr('transform','translate(0,-44)');
+    gGridV.attr('transform','translate(0,-78)');
     const ticks=xScale.ticks(10);
     gGridV.selectAll('line').data(ticks).join('line')
-      .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH+60);
+      .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',0).attr('y2',innerH+90);
 
-    // platform labels (left)
+    // platform labels
     gLabels.selectAll('*').remove();
     S.platforms.forEach((p,i)=>{
       gLabels.append('text')
@@ -371,7 +346,6 @@
         .text(p.toUpperCase());
     });
 
-    // Rows + dots
     const rowSel=gRows.selectAll('g.row').data(S.platforms,d=>d);
     const rowEnter=rowSel.enter().append('g').attr('class','row');
     const rowAll=rowEnter.merge(rowSel).attr('transform',(d,i)=>`translate(0,${i*(rowH+rowGap)+rowH/2})`);
@@ -406,7 +380,7 @@
       const sim=d3.forceSimulation(nodes)
         .force('x',d3.forceX(d=>xScale(d.date)).strength(0.85))
         .force('y',d3.forceY(0).strength(0.16))
-        .force('collide',d3.forceCollide(d=>d.r+5))   // more padding so dots don't touch
+        .force('collide',d3.forceCollide(d=>d.r+5))
         .alpha(0.9).alphaDecay(0.02)
         .on('tick',()=>{
           gDot.attr('transform',d=>`translate(${d.x},${d.y})`);
@@ -430,12 +404,11 @@
     S.platforms.forEach((plat,iRow)=>{
       const yTop=iRow*(rowH+rowGap);
       const g=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-      g.append('text').attr('class','panel-title').attr('x',0).attr('y',-20).text(`${plat.toUpperCase()} — CONTEXT`);
-      g.append('text').attr('class','loading').attr('x',0).attr('y',18).text('Loading annotations…');
+      g.append('text').attr('class','panel-title').attr('x',0).attr('y',-30).text(`${plat.toUpperCase()} — CONTEXT`);
+      g.append('text').attr('class','loading').attr('x',0).attr('y',8).text('Loading annotations…');
     });
   }
 
-  /* ----- legends ----- */
   function buildLegends(){
     const themeBox=d3.select('#legend-themes'); themeBox.selectAll('*').remove();
     const themes=[...S.themes].sort();
@@ -491,7 +464,6 @@
     });
   }
 
-  /* ----- stories legend ----- */
   function buildStoriesLegend(){
     const el=d3.select('#legend-stories'); el.selectAll('*').remove();
     const stories=['All', STORY_PLANNING, STORY_MILITARY, STORY_FRAUD];
@@ -523,86 +495,113 @@
     const isMilitary=S.activeStory===STORY_MILITARY;
     const isFraud=S.activeStory===STORY_FRAUD;
     gRows.selectAll('g.dot').classed('dimStory', d=>{
-      if(isPlanning)  return !planningThemes.has(d.theme);
-      if(isMilitary)  return !militarySubthemes.has(d.subtheme);
-      if(isFraud)     return d.story!==STORY_FRAUD;
+      if (isPlanning) return !planningThemes.has(d.theme);
+      if (isMilitary) return !militarySubthemes.has(d.subtheme);
+      if (isFraud)    return d.theme !== 'Allegations of election fraud';
       return false;
     });
   }
 
-  /* ----- sidebars (visible items only) ----- */
+  /* ---------- Sidebars (NO OVERLAP) ---------- */
   function rebuildSidebars(){
     gLines.selectAll('*').remove(); gOverlay.selectAll('*').remove(); gSide.selectAll('*').remove();
     if (S.activeStory==='All') return;
+
     const textFor = d => S.annoLang==='pt' ? d.context_pt : d.context_en;
     const perRow = new Map(S.platforms.map(p=>[p,[]]));
+
     S.data.forEach(d=>{
-      const txt=(textFor(d)||'').trim();
-      if(!txt) return;
+      const txt=(textFor(d)||'').trim(); if(!txt) return;
       if(S.activeStory===STORY_PLANNING && d.story!==STORY_PLANNING) return;
       if(S.activeStory===STORY_MILITARY && d.story!==STORY_MILITARY) return;
-      if(S.activeStory===STORY_FRAUD    && d.story!==STORY_FRAUD)     return;
+      if(S.activeStory===STORY_FRAUD && d.theme !== 'Allegations of election fraud') return;
       if(!datumVisible(d)) return;
       perRow.get(d.platform)?.push(d);
     });
 
     const fmtDate=d3.timeFormat('%b %d');
+
     S.platforms.forEach((plat,iRow)=>{
       const items=(perRow.get(plat)||[]).sort((a,b)=>a.date-b.date);
       if(!items.length) return;
+
       const xLeft=PLOT_W+GAP_W, yTop=iRow*(rowH+rowGap);
       const gCol=gSide.append('g').attr('transform',`translate(${xLeft},${yTop})`);
-      gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-22).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      const chipH=46, chipGap=16, lanes=Math.min(4, Math.ceil(items.length/6) || 1);
-      const laneW=Math.floor(SIDE_W/lanes)-(lanes>1?10:0);
-      const laneX=i=>i*(laneW+10); const laneY=Array(lanes).fill(18);
+      gCol.append('text').attr('class','panel-title').attr('x',0).attr('y',-30).text(`${plat.toUpperCase()} — CONTEXT`);
 
-      const overlayRow=gOverlay.append('g'); let expandedFor=null, expandedGroup=null, connector=null;
+      // ----- NO OVERLAP LAYOUT -----
+      const MIN_CHIP_W = 150;                        // never smaller than this
+      const MAX_LANES  = Math.max(1, Math.floor(SIDE_W / MIN_CHIP_W));
+      const lanes      = Math.max(1, Math.min(MAX_LANES, items.length));   // width-limited
+      const laneW      = Math.floor(SIDE_W / lanes) - (lanes>1 ? 10 : 0);  // per-lane width
+      const chipH      = 78;
+      const chipGap    = 28;
+      const laneX      = i => i * (laneW + (lanes>1 ? 10 : 0));
+      const laneY      = Array(lanes).fill(14);       // start below title
+
+      const overlayRow = gOverlay.append('g');
+      let expandedFor  = null, expandedGroup = null, connector = null;
 
       items.forEach(d=>{
-        let k=0,best=laneY[0]; for(let i=1;i<lanes;i++){ if(laneY[i]<best){best=laneY[i];k=i;} }
+        // pick lane with smallest current Y
+        let k=0,best=laneY[0];
+        for(let i=1;i<lanes;i++) if(laneY[i]<best){best=laneY[i];k=i;}
+
         const g=gCol.append('g').attr('class','chip-g').style('cursor','pointer')
-                     .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
+                    .attr('transform',`translate(${laneX(k)},${laneY[k]})`);
+
         const label=fmtDate(d.date).toUpperCase();
         const tmp=g.append('text').text(label).attr('opacity',0);
-        const w=Math.max(96,tmp.node().getComputedTextLength()+32); tmp.remove();
-        g.append('rect').attr('width',w).attr('height',chipH).attr('rx',12).attr('ry',12);
-        g.append('text').attr('x',w/2).attr('y',chipH/2+7).attr('text-anchor','middle').text(label);
-        laneY[k]+=chipH+chipGap;
+        const desired = Math.max(MIN_CHIP_W, tmp.node().getComputedTextLength()+36);
+        tmp.remove();
+        const w = Math.min(laneW-4, desired);         // cap to lane width
 
-        g.on('click',()=>toggleExpand(d));
+        g.append('rect').attr('width',w).attr('height',chipH).attr('rx',14).attr('ry',14);
+        g.append('text').attr('x',w/2).attr('y',chipH/2+11).attr('text-anchor','middle').text(label);
 
-        function toggleExpand(datum){
+        laneY[k] += chipH + chipGap;
+
+        g.on('click',(e)=>{ e.stopPropagation(); toggleExpand(d, w); });
+
+        function toggleExpand(datum, chipW){
           if(expandedFor===datum.uid){
-            expandedFor=null; if(expandedGroup){expandedGroup.remove(); expandedGroup=null;} if(connector){connector.remove(); connector=null;} return;
+            expandedFor=null;
+            if(expandedGroup){expandedGroup.remove(); expandedGroup=null;}
+            if(connector){connector.remove(); connector=null;}
+            return;
           }
-          expandedFor=datum.uid; if(expandedGroup){expandedGroup.remove();} if(connector){connector.remove();}
-          expandedGroup=overlayRow.append('g').attr('class','xchip');
+          expandedFor=datum.uid;
+          if(expandedGroup){expandedGroup.remove();}
+          if(connector){connector.remove();}
+
+          expandedGroup = overlayRow.append('g').attr('class','xchip');
 
           const bodyText=(textFor(datum)||'').trim();
-          const x=xLeft, y=yTop+18, maxW=SIDE_W;
+          const x=xLeft, y=yTop+20, maxW=SIDE_W;
 
-          const rect=expandedGroup.append('rect').attr('width',maxW).attr('height',10).attr('rx',16).attr('ry',16);
-          // header
-          expandedGroup.append('text').attr('x',20).attr('y',32).text(`${label} — ${datum.platform}`);
-          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-20).attr('y',30).text('×').on('click',()=>toggleExpand(datum));
-          expandedGroup.on('click',()=>toggleExpand(datum));
-          // body (even padding, larger font/line height)
-          const body=expandedGroup.append('text').attr('x',20).attr('y',58);
-          wrapSvgText(body, maxW-40, 24, 220, bodyText);
+          const rect = expandedGroup.append('rect')
+            .attr('width', maxW)
+            .attr('height', 10)
+            .attr('rx', 18).attr('ry', 18);
+
+          expandedGroup.append('text').attr('x',30).attr('y',44).text(`${label} — ${datum.platform}`);
+          expandedGroup.append('text').attr('class','xbtn').attr('x',maxW-30).attr('y',42)
+            .text('×').on('click',(e)=>{ e.stopPropagation(); toggleExpand(datum, chipW); });
+
+          const body=expandedGroup.append('text').attr('x',30).attr('y',84);
+          wrapSvgText(body, maxW-60, 34, 220, bodyText);
           const lines=body.selectAll('tspan').nodes().length||1;
-          const boxH=34 + 8 + (lines*24) + 20; // 20px padding bottom
-          rect.attr('height',boxH);
+          const boxH=48 + 12 + (lines*34) + 36;
+          rect.attr('height', boxH);
           expandedGroup.attr('transform',`translate(${x},${y})`);
 
-          // connector
           const pos=posByUid.get(datum.uid);
           if(pos){
-            const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-14, y2=y+boxH/2;
+            const x1=pos.x, y1=pos.y, x2=PLOT_W+GAP_W-18, y2=y+boxH/2;
             connector=gLines.append('path')
               .attr('d',`M${x1},${y1} C ${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`)
-              .attr('stroke','#6fa7ff').attr('stroke-width',2.2).attr('fill','none').attr('marker-end','url(#arrow)');
+              .attr('stroke','#6fa7ff').attr('stroke-width',2.4).attr('fill','none').attr('marker-end','url(#arrow)');
           }
         }
       });
@@ -629,6 +628,7 @@
     gRows.selectAll('g.dot').classed('hidden', d=>!datumVisible(d));
     if (S.activeStory!=='All' && rebuildSB) rebuildSidebars();
   }
+
   function applyRange(){
     const fromV=document.getElementById('from-date').value;
     const toV=document.getElementById('to-date').value;
@@ -639,7 +639,6 @@
     rebuild();
   }
 
-  // Tooltip (bigger; only requested fields)
   const fmt=d3.format(',');
   function showTooltip(evt,d){
     const el=tooltip; el.classList.remove('hidden');
@@ -665,7 +664,6 @@
   }
   function hideTooltip(){ tooltip.classList.add('hidden'); }
 
-  // Open Annex (or URL)
   function openDetails(d){
     const annex=(d.annex||'').trim(); const url=(d.link||'').trim(); const best=annex?annex:(url?url:null);
     if(!best) return; window.open(best,'_blank','noopener');
